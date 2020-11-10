@@ -1,0 +1,105 @@
+// +build darwin
+
+// Copyright 2020 SunJun <i@sjis.me>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package net
+
+import (
+	"syscall"
+	"time"
+	"unsafe"
+
+	"github.com/sjatsh/beanstalk-go/internal/structure"
+)
+
+const (
+	Infinity = 1 << 30
+)
+
+var kq int
+
+func init() {
+	var err error
+	kq, err = syscall.Kqueue()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func SockWant(s *structure.Socket, rw byte) (int, error) {
+	evs := make([]syscall.Kevent_t, 0)
+	ts := syscall.Timespec{}
+
+	if s.Added > 0 {
+		evs = append(evs, syscall.Kevent_t{
+			Ident:  uint64(s.F.Fd()),
+			Filter: s.Added,
+			Flags:  syscall.EV_DELETE,
+		})
+	}
+
+	if rw > 0 {
+		ev := syscall.Kevent_t{
+			Ident: uint64(s.F.Fd()),
+		}
+		switch rw {
+		case 'r':
+			ev.Filter = syscall.EVFILT_READ
+		case 'w':
+			ev.Filter = syscall.EVFILT_WRITE
+		default:
+			ev.Filter = syscall.EVFILT_READ
+			ev.Fflags = syscall.NOTE_LOWAT
+			ev.Data = Infinity
+		}
+		ev.Flags = syscall.EV_ADD
+		ev.Udata = (*byte)(unsafe.Pointer(s))
+		s.Added = ev.Filter
+		evs = append(evs, ev)
+	}
+	n, err := syscall.Kevent(kq, evs, nil, &ts)
+	if err != nil {
+		return n, err
+	}
+	return n, nil
+}
+
+func SockNext(s **structure.Socket, timeout time.Duration) (byte, error) {
+	ts := syscall.Timespec{}
+	evs := make([]syscall.Kevent_t, 1)
+
+	ts.Sec = int64(timeout / time.Second)
+	ts.Nsec = int64(timeout % time.Second)
+
+	r, err := syscall.Kevent(kq, nil, evs, &ts)
+	if r == -1 || err != nil {
+		return byte(r), err
+	}
+
+	ev := evs[0]
+	if r > 0 {
+		*s = (*structure.Socket)(unsafe.Pointer(ev.Udata))
+		if ev.Flags&syscall.EV_EOF > 0 {
+			return 'h', nil
+		}
+
+		switch ev.Filter {
+		case syscall.EVFILT_READ:
+			return 'r', nil
+		case syscall.EVFILT_WRITE:
+			return 'w', nil
+		}
+	}
+	return 0, nil
+}
