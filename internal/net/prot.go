@@ -14,8 +14,12 @@
 package net
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"math"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -55,7 +59,89 @@ const (
 	MsgUnknownCommand = "UNKNOWN_COMMAND\r\n"
 	MsgExpectedCrlf   = "EXPECTED_CRLF\r\n"
 	MsgJobTooBig      = "JOB_TOO_BIG\r\n"
+
+	CmdPut              = "put "
+	CmdPeekJob          = "peek "
+	CmdPeekReady        = "peek-ready"
+	CmdPeekDelayed      = "peek-delayed"
+	CmdPeekBuried       = "peek-buried"
+	CmdReserve          = "reserve"
+	CmdReserveTimeout   = "reserve-with-timeout "
+	CmdReserveJob       = "reserve-job "
+	CmdDelete           = "delete "
+	CmdRelease          = "release "
+	CmdBury             = "bury "
+	CmdKick             = "kick "
+	CmdKickJob          = "kick-job "
+	CmdTouch            = "touch "
+	CmdStats            = "stats"
+	CmdStatsJob         = "stats-job "
+	CmdUse              = "use "
+	CmdWatch            = "watch "
+	CmdIgnore           = "ignore "
+	CmdListTubes        = "list-tubes"
+	CmdListTubeUsed     = "list-tube-used"
+	CmdListTubesWatched = "list-tubes-watched"
+	CmdStatsTube        = "stats-tube "
+	CmdQuit             = "quit"
+	CmdPauseTube        = "pause-tube"
+
+	OpUnknown          = 0
+	OpPut              = 1
+	OpPeekJob          = 2
+	OpReserve          = 3
+	OpDelete           = 4
+	OpRelease          = 5
+	OpBury             = 6
+	OpKick             = 7
+	OpStats            = 8
+	OpStatsJob         = 9
+	OpPeekBuried       = 10
+	OpUse              = 11
+	OpWatch            = 12
+	OpIgnore           = 13
+	OpListTubes        = 14
+	OpListTubeUsed     = 15
+	OpListTubesWatched = 16
+	OpStatsTube        = 17
+	OpPeekReady        = 18
+	OpPeekDeleadyed    = 19
+	OpReserveTimeout   = 20
+	OpTouch            = 21
+	OpQuit             = 22
+	OpPauseTube        = 23
+	OpKickJob          = 24
+	OpReserveJob       = 25
+	TpALOps            = 26
 )
+
+var Cmd2OpMap = map[string]int{
+	CmdPut:              OpPut,
+	CmdPeekJob:          OpPeekJob,
+	CmdPeekReady:        OpPeekReady,
+	CmdPeekDelayed:      OpPeekDeleadyed,
+	CmdPeekBuried:       OpPeekBuried,
+	CmdReserve:          OpReserve,
+	CmdReserveTimeout:   OpReserveTimeout,
+	CmdReserveJob:       OpReserveJob,
+	CmdDelete:           OpDelete,
+	CmdRelease:          OpRelease,
+	CmdBury:             OpBury,
+	CmdKick:             OpKick,
+	CmdKickJob:          OpKickJob,
+	CmdTouch:            OpTouch,
+	CmdStats:            OpStats,
+	CmdStatsJob:         OpStatsJob,
+	CmdUse:              OpUse,
+	CmdWatch:            OpWatch,
+	CmdIgnore:           OpIgnore,
+	CmdListTubes:        OpListTubes,
+	CmdListTubeUsed:     OpListTubeUsed,
+	CmdListTubesWatched: OpListTubesWatched,
+	CmdStatsTube:        OpStatsTube,
+	CmdQuit:             OpQuit,
+	CmdPauseTube:        OpPauseTube,
+}
 
 var epollQ *structure.Coon
 
@@ -95,16 +181,16 @@ func EpollQRmConn(c *structure.Coon) {
 }
 
 func ReplyMsg(c *structure.Coon, m string) {
-	Reply(c, m, len(m), StateSendWord)
+	Reply(c, m, int64(len(m)), StateSendWord)
 }
 
-func Reply(c *structure.Coon, line string, len, state int) {
+func Reply(c *structure.Coon, line string, len int64, state int) {
 	if c == nil {
 		return
 	}
 	EpollqAdd(c, 'w')
 
-	c.Reply = line
+	c.Reply = []byte(line)
 	c.ReplyLen = len
 	c.ReplySent = 0
 	c.State = state
@@ -115,13 +201,13 @@ func ReplyErr(c *structure.Coon, err string) {
 	ReplyMsg(c, err)
 }
 
-func replyLine(c *structure.Coon, state int, fmtStr string, msg string, id uint64, size uint64) {
-	c.ReplyBuf = fmt.Sprintf(fmtStr, msg, id, size)
+func replyLine(c *structure.Coon, state int, fmtStr string, params ...interface{}) {
+	c.ReplyBuf = []byte(fmt.Sprintf(fmtStr, params...))
 	r := len(c.ReplyBuf)
 	if r >= constant.LineBufSize {
 		ReplyErr(c, MsgInternalError)
 	}
-	Reply(c, c.ReplyBuf, r, state)
+	Reply(c, string(c.ReplyBuf), int64(r), state)
 }
 
 func ReplyJob(c *structure.Coon, j *structure.Job, msg string) {
@@ -154,17 +240,17 @@ func ProcessQueue() {
 	}
 }
 
-func EnqueueJob(s *structure.Server, j *structure.Job, delay int64, updateStore bool) bool {
+func EnqueueJob(s *structure.Server, j *structure.Job, delay int64, updateStore bool) int {
 	j.Reserver = nil
 	if delay > 0 {
 		j.R.DeadlineAt = time.Now().UnixNano() + delay
 		if !j.Tube.Delay.Push(&structure.Item{Value: j}) {
-			return false
+			return 0
 		}
 		j.R.State = core.Delayed
 	} else {
 		if !j.Tube.Ready.Push(&structure.Item{Value: j}) {
-			return false
+			return 0
 		}
 		j.R.State = core.Ready
 		utils.ReadyCt++
@@ -179,7 +265,7 @@ func EnqueueJob(s *structure.Server, j *structure.Job, delay int64, updateStore 
 	}
 
 	ProcessQueue()
-	return true
+	return 1
 }
 
 func ProtTick(s *structure.Server) time.Duration {
@@ -232,4 +318,165 @@ func ProtTick(s *structure.Server) time.Duration {
 	EpollQApply()
 
 	return time.Duration(period)
+}
+
+func fillExtraData(c *structure.Coon) {
+	if c.Sock.F == nil {
+		return
+	}
+	if c.CmdLen == 0 {
+		return
+	}
+	extraBytes := c.CmdRead - c.CmdLen
+
+	jobDataBytes := 0
+	if c.InJob != nil {
+		jobDataBytes = int(math.Min(float64(extraBytes), float64(c.InJob.R.BodySize)))
+		c.InJob.Body = c.Cmd[c.CmdLen : c.CmdLen+jobDataBytes]
+		c.InJobRead = int64(jobDataBytes)
+	} else if c.InJobRead > 0 {
+		jobDataBytes = int(math.Min(float64(extraBytes), float64(c.InJobRead)))
+		c.InJobRead -= int64(jobDataBytes)
+	}
+
+	cmdBytes := extraBytes - jobDataBytes
+	c.Cmd = c.Cmd[c.CmdLen+jobDataBytes : c.CmdLen+jobDataBytes+cmdBytes]
+	c.CmdRead = cmdBytes
+	c.CmdLen = 0
+}
+
+func whichCmd(cmd string) int {
+	for k, v := range Cmd2OpMap {
+		if strings.HasPrefix(cmd, k) {
+			return v
+		}
+	}
+	return OpUnknown
+}
+
+func readInt(buf []byte) (int64, int, error) {
+	begin := 0
+	for i := 0; i < len(buf); i++ {
+		if buf[i] != ' ' {
+			break
+		}
+		begin++
+	}
+	if buf[begin] < '0' || buf[begin] > '9' {
+		return 0, 0, errors.New("fmt error")
+	}
+
+	var data []byte
+	end := begin
+	for ; end < len(buf); end++ {
+		if buf[end] == ' ' || buf[end] < '0' || buf[end] > '9' {
+			break
+		}
+		data = append(data, buf[end])
+	}
+
+	i, err := strconv.ParseInt(string(data), 10, 64)
+	if err != nil {
+		return 0, 0, err
+	}
+	return i, end, nil
+}
+
+func skip(c *structure.Coon, n int64, msg string) {
+	c.InJob = nil
+	c.InJobRead = n
+	fillExtraData(c)
+
+	if c.InJobRead == 0 {
+		Reply(c, msg, int64(len(msg)), StateSendWord)
+		return
+	}
+
+	c.Reply = []byte(msg)
+	c.ReplyLen = int64(len(msg))
+	c.ReplySent = 0
+	c.State = StateBitbucket
+}
+
+func readDuration(buf []byte) (int64, int, error) {
+	t, next, err := readInt(buf)
+	if err != nil {
+		return 0, 0, err
+	}
+	duration := t * 1000000000
+	return duration, next, nil
+}
+
+func connsetproducer(c *structure.Coon) {
+	if c.Type&ConnTypeProducer > 0 {
+		return
+	}
+	c.Type |= ConnTypeProducer
+	CurProducerCt++
+}
+
+func strLen(s []byte) int {
+	return bytes.Index(s, []byte("\r"))
+}
+
+func dispatchCmd(c *structure.Coon) {
+	if strLen(c.Cmd) != c.CmdLen-2 {
+		ReplyMsg(c, MsgBadFormat)
+		return
+	}
+
+	t := whichCmd(string(c.Cmd))
+	switch t {
+	case OpPut:
+		idx := 4
+		pri, next, err := readInt(c.Cmd[idx:])
+		if err != nil {
+			ReplyMsg(c, MsgBadFormat)
+			return
+		}
+		idx += next
+
+		delay, next, err := readDuration(c.Cmd[idx:])
+		if err != nil {
+			ReplyMsg(c, MsgBadFormat)
+			return
+		}
+		idx += next
+
+		ttr, next, err := readDuration(c.Cmd[idx:])
+		if err != nil {
+			ReplyMsg(c, MsgBadFormat)
+			return
+		}
+		idx += next
+
+		bodySize, next, err := readInt(c.Cmd[idx:])
+		if err != nil {
+			ReplyMsg(c, MsgBadFormat)
+			return
+		}
+		idx += next
+
+		utils.OpCt[t]++
+
+		if bodySize > constant.JobDataSizeLimitDefault {
+			skip(c, bodySize+2, MsgJobTooBig)
+			return
+		}
+
+		if c.Cmd[idx] != '\r' {
+			ReplyMsg(c, MsgBadFormat)
+			return
+		}
+
+		connsetproducer(c)
+		if ttr < 1000000000 {
+			ttr = 1000000000
+		}
+
+		c.InJob = core.MakeJobWithID(uint32(pri), delay, ttr, bodySize+2, c.Use, 0)
+		fillExtraData(c)
+
+		maybeEnqueueInComingJob(c)
+	}
 }

@@ -16,7 +16,7 @@ package net
 import (
 	"bytes"
 	"fmt"
-	"io"
+	"math"
 	net "net"
 	"os"
 	"strings"
@@ -24,6 +24,7 @@ import (
 	"github.com/sjatsh/beanstalk-go/internal/constant"
 	"github.com/sjatsh/beanstalk-go/internal/core"
 	"github.com/sjatsh/beanstalk-go/internal/structure"
+	"github.com/sjatsh/beanstalk-go/internal/utils"
 )
 
 func makeServerListener(addr string, port int) (net.Listener, error) {
@@ -184,8 +185,8 @@ func hConn(c *structure.Coon, which byte) {
 
 	// 读取命令并且处理
 	for ; commandDataReady(c) && c.CmdLen == scanLineEnd(c.Cmd, c.CmdRead); {
-		// dispatch_cmd(c)
-		// fill_extra_data(c)
+		dispatchCmd(c)
+		fillExtraData(c)
 	}
 
 	// 判断连接关闭关闭连接
@@ -196,12 +197,79 @@ func hConn(c *structure.Coon, which byte) {
 	EpollQApply()
 }
 
+func enqueueInComingJob(c *structure.Coon) {
+	j := c.InJob
+
+	c.InJob = nil
+	c.InJobRead = 0
+
+	if bytes.Index(j.Body, []byte("\r\n")) == len(j.Body)-1 {
+		core.JobFree(j)
+		ReplyMsg(c, MsgExpectedCrlf)
+		return
+	}
+
+	if core.DrainMode > 0 {
+		core.JobFree(j)
+		ReplyErr(c, MsgDraining)
+		return
+	}
+
+	if j.WalResv > 0 {
+		ReplyErr(c, MsgInternalError)
+		return
+	}
+
+	// TODO  j->walresv = walresvput(&c->srv->wal, j);
+	// if j.WalResv == 0 {
+	// 	ReplyErr(c, MsgOutOfMemory)
+	// 	return
+	// }
+
+	r := EnqueueJob(c.Srv, j, j.R.Delay, true)
+	if r < 0 {
+		ReplyErr(c, MsgInternalError)
+		return
+	}
+
+	utils.GlobalState.TotalJobsCt++
+	j.Tube.Stat.TotalJobsCt++
+
+	if r == 1 {
+		replyLine(c, StateSendWord, MsgInsertedFmt, j.R.ID)
+		return
+	}
+
+	core.BuryJob(c.Srv, j, false)
+	replyLine(c, StateSendWord, MsgBuriedFmt, j.R.ID)
+}
+
+func maybeEnqueueInComingJob(c *structure.Coon) {
+	j := c.InJob
+	if c.InJobRead == j.R.BodySize {
+		enqueueInComingJob(c)
+		return
+	}
+	c.State = StateWantData
+}
+
+func connWantCommand(c *structure.Coon) {
+	EpollqAdd(c, 'r')
+
+	if c.OutJob != nil && c.OutJob.R.State == core.Copy {
+		core.JobFree(c.OutJob)
+	}
+	c.OutJob = nil
+	c.ReplySent = 0
+	c.State = StateWantCommand
+}
+
 func connProcessIO(c *structure.Coon) {
 	switch c.State {
 	case StateWantCommand:
 		data := make([]byte, constant.LineBufSize-c.CmdRead)
 		r, err := c.Sock.F.Read(data)
-		if r == -1 || (err != nil && err != io.EOF) {
+		if r == -1 || err != nil {
 			return
 		}
 		if r == 0 {
@@ -220,11 +288,10 @@ func connProcessIO(c *structure.Coon) {
 			c.CmdRead = 0
 			c.State = StateWantEndLine
 		}
-		return
 	case StateWantEndLine:
 		data := make([]byte, constant.LineBufSize-c.CmdRead)
 		r, err := c.Sock.F.Read(data)
-		if r == -1 || (err != nil && err != io.EOF) {
+		if r == -1 || err != nil {
 			return
 		}
 		if r == 0 {
@@ -237,19 +304,87 @@ func connProcessIO(c *structure.Coon) {
 		c.CmdLen = scanLineEnd(c.Cmd, c.CmdRead)
 		if c.CmdLen > 0 {
 			ReplyMsg(c, MsgBadFormat)
-			// TODO 填充额外数据
+			fillExtraData(c)
 			return
 		}
 		if c.CmdRead == constant.LineBufSize {
 			c.CmdRead = 0
 		}
-		return
 	case StateBitbucket:
+		toread := int64(math.Min(float64(c.InJobRead), float64(constant.BucketBufSize)))
+		bucket := make([]byte, toread)
+		r, err := c.Sock.F.Read(bucket)
+		if r == -1 || err != nil {
+			return
+		}
+		if r == 0 {
+			c.State = StateClose
+			return
+		}
+		c.InJobRead -= int64(r)
+		if c.InJobRead == 0 {
+			Reply(c, string(c.Reply), c.ReplyLen, StateSendWord)
+		}
 	case StateWantData:
+		j := c.InJob
+		data := make([]byte, j.R.BodySize-c.InJobRead)
+		r, err := c.Sock.F.Read(data)
+		if r == -1 || err != nil {
+			return
+		}
+		if r == 0 {
+			c.State = StateClose
+			return
+		}
+		c.InJobRead += int64(r)
+		maybeEnqueueInComingJob(c)
 	case StateSendWord:
-	case StateSendJob:
-	case StateWait:
+		replySend := c.Reply[c.ReplySent : c.ReplySent+c.ReplyLen-c.ReplySent]
+		r, err := c.Sock.F.Write(replySend)
+		if r == -1 || err != nil {
+			return
+		}
+		if r == 0 {
+			c.State = StateClose
+			return
+		}
 
+		c.ReplySent += int64(r)
+		if c.ReplySent == c.ReplyLen {
+			connWantCommand(c)
+			return
+		}
+
+	case StateSendJob:
+		j := c.OutJob
+		sendData := bytes.Buffer{}
+		sendData.Write(c.Reply[c.ReplySent : c.ReplyLen-c.ReplySent+1])
+		sendData.Write(j.Body[c.OutJobSent : j.R.BodySize-c.OutJobSent+1])
+		r, err := c.Sock.F.Write(sendData.Bytes())
+		if r == -1 || err != nil {
+			return
+		}
+		if r == 0 {
+			c.State = StateClose
+			return
+		}
+		c.ReplySent += int64(r)
+		if c.ReplySent >= c.ReplyLen {
+			c.OutJobSent += c.ReplySent - c.ReplyLen
+			c.ReplySent = c.ReplyLen
+		}
+
+		if c.OutJobSent == j.R.BodySize {
+			wantCommand(c)
+			return
+		}
+	case StateWait:
+		if c.HalfClosed {
+			c.PendingTimeout = -1
+			RemoveWaitingCoon(c)
+			ReplyMsg(c, MsgTimedOut)
+			return
+		}
 	}
 }
 

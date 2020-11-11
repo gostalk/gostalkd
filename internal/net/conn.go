@@ -48,7 +48,9 @@ func onIgnore(a *structure.Ms, t interface{}, i int) {
 }
 
 func MakeConn(f *os.File, startState int, use, watch *structure.Tube) *structure.Coon {
-	c := &structure.Coon{}
+	c := &structure.Coon{
+		ReservedJobs: core.NewJob(),
+	}
 	w := structure.NewMs()
 	c.Watch = w
 
@@ -114,7 +116,7 @@ func ConnTimeout(c *structure.Coon) {
 		}
 		utils.TimeoutCt++
 		j.R.TimeoutCt++
-		if !EnqueueJob(c.Srv, RemoveThisReservedJob(c, j), 0, false) {
+		if EnqueueJob(c.Srv, RemoveThisReservedJob(c, j), 0, false) == 1 {
 			// TODO bury_job
 		}
 		ConnSched(c)
@@ -176,7 +178,7 @@ func EnqueueReservedJobs(c *structure.Coon) {
 	for !core.JobListEmpty(c.ReservedJobs) {
 		j := core.JobListRemove(c.ReservedJobs.Next)
 		r := EnqueueJob(c.Srv, j, 0, false)
-		if !r {
+		if r == 0 {
 			core.BuryJob(c.Srv, j, false)
 		}
 		utils.GlobalState.ReservedCt--

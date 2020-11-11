@@ -48,7 +48,7 @@ func JobState(state int32) string {
 var nextJobId uint64 = 1
 var allJobs = make(map[uint64]*structure.Job)
 
-func NewJob(bodySize ...uint64) *structure.Job {
+func NewJob(bodySize ...int64) *structure.Job {
 	j := &structure.Job{
 		R: structure.JobRec{},
 	}
@@ -119,7 +119,7 @@ func BuryJob(s *structure.Server, j *structure.Job, updateStore bool) bool {
 	return true
 }
 
-func MakeJobWithID(pri uint32, delay, ttr int64, bodySize uint64, tube *structure.Tube, id uint64) {
+func MakeJobWithID(pri uint32, delay, ttr, bodySize int64, tube *structure.Tube, id uint64)*structure.Job {
 	j := NewJob(bodySize)
 	if id > 0 {
 		j.R.ID = id
@@ -142,6 +142,16 @@ func MakeJobWithID(pri uint32, delay, ttr int64, bodySize uint64, tube *structur
 	JobStore(j)
 
 	j.Tube = tube
+	return j
+}
+
+func JobFree(j *structure.Job) {
+	if j != nil {
+		j.Tube = nil
+		if j.R.State != Copy {
+			delete(allJobs, j.R.ID)
+		}
+	}
 }
 
 func JobListRest(j *structure.Job) {

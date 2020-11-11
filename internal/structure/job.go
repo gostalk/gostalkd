@@ -13,15 +13,12 @@
 // limitations under the License.
 package structure
 
-import (
-)
-
 type JobRec struct {
 	ID       uint64
 	Pri      uint32
 	Delay    int64
 	TTR      int64
-	BodySize uint64
+	BodySize int64
 	CreateAt int64
 
 	// deadline_at is a timestamp, in nsec, that points to:
@@ -56,5 +53,5 @@ type Job struct {
 	WalResv int
 	WalUsed int
 
-	Body string
+	Body []byte
 }

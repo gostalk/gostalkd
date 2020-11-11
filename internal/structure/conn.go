@@ -47,16 +47,16 @@ type Coon struct {
 	CmdLen  int    // cmd长度
 	CmdRead int    // cmd当前读取长度
 
-	Reply     string
-	ReplyLen  int
-	ReplySent int
-	ReplyBuf  string
+	Reply     []byte
+	ReplyLen  int64
+	ReplySent int64
+	ReplyBuf  []byte
 
 	InJobRead int64
 	InJob     *Job
 
 	OutJob     *Job
-	OutJobSent int
+	OutJobSent int64
 
 	Watch        *Ms
 	ReservedJobs *Job

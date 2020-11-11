@@ -25,13 +25,16 @@ const (
 const (
 	InstanceIDBytes = 8
 	// JobDataSizeLimitMax
-	JobDataSizeLimitMax = 1073741824
+	JobDataSizeLimitMax     = 1073741824
+	JobDataSizeLimitDefault = 1<<16 - 1
+
 	// MaxTubeNameLen
 	MaxTubeNameLen = 201 // The name of a tube cannot be longer than MaxTubeNameLen-1
 	LineBufSize    = 11 + MaxTubeNameLen + 12
 	AllJobsCap     = 12289
 
 	UrgentThreshold = 1024
+	BucketBufSize   = 1024
 )
 
 // OpType
