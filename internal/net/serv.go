@@ -14,11 +14,14 @@
 package net
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	net "net"
 	"os"
 	"strings"
 
+	"github.com/sjatsh/beanstalk-go/internal/constant"
 	"github.com/sjatsh/beanstalk-go/internal/core"
 	"github.com/sjatsh/beanstalk-go/internal/structure"
 )
@@ -115,8 +118,7 @@ func HAccept(s *structure.Server, which byte) {
 		return
 	}
 
-	cfd := cf.Fd()
-	if int(cfd) == -1 {
+	if int(cf.Fd()) == -1 {
 		EpollQApply()
 		return
 	}
@@ -127,20 +129,14 @@ func HAccept(s *structure.Server, which byte) {
 		EpollQApply()
 		return
 	}
-	ln, err := net.FileListener(cf)
-	if err != nil {
-		return
-	}
 
 	ct.Srv = s
 	ct.Sock.F = cf
-	ct.Sock.Ln = ln
 	ct.Sock.X = ct
 	ct.Sock.H = protHandle
 
 	if r, err := SockWant(&ct.Sock, 'r'); r == -1 || err != nil {
 		cf.Close()
-		ln.Close()
 	}
 
 	EpollQApply()
@@ -151,23 +147,26 @@ func protHandle(i interface{}, b byte) {
 	hConn(c, b)
 }
 
-func scanLineEnd(s string, size int) int {
+func scanLineEnd(s []byte, size int) int {
 	l := len(s)
 	if l < 2 || l != size {
 		return 0
 	}
-	idx := strings.Index(s, "\r\n")
+	idx := bytes.Index(s, []byte("\r"))
 	if idx == -1 {
 		return 0
 	}
-	if idx != size-2 {
+	if idx >= l-1 {
 		return 0
 	}
-	return size
+	if s[idx+1] == '\n' {
+		return idx + 2
+	}
+	return 0
 }
 
 func wantCommand(c *structure.Coon) bool {
-	return c.Sock.F != nil && c.Sock.Ln != nil && c.State == StateWantCommand
+	return c.Sock.F != nil && c.State == StateWantCommand
 }
 
 func commandDataReady(c *structure.Coon) bool {
@@ -176,14 +175,20 @@ func commandDataReady(c *structure.Coon) bool {
 
 func hConn(c *structure.Coon, which byte) {
 	if which == 'h' {
+		// 客户端连接关闭
 		c.HalfClosed = true
 	}
-	ConnProcessIO(c)
-	for ; commandDataReady(c) && c.CmdLen ==scanLineEnd(c.Cmd,c.CmdRead); {
+
+	// 维护客户端连接状态
+	connProcessIO(c)
+
+	// 读取命令并且处理
+	for ; commandDataReady(c) && c.CmdLen == scanLineEnd(c.Cmd, c.CmdRead); {
 		// dispatch_cmd(c)
 		// fill_extra_data(c)
 	}
 
+	// 判断连接关闭关闭连接
 	if c.State == StateClose {
 		EpollQRmConn(c)
 		ConnClose(c)
@@ -191,8 +196,61 @@ func hConn(c *structure.Coon, which byte) {
 	EpollQApply()
 }
 
-func ConnProcessIO(c *structure.Coon) {
+func connProcessIO(c *structure.Coon) {
+	switch c.State {
+	case StateWantCommand:
+		data := make([]byte, constant.LineBufSize-c.CmdRead)
+		r, err := c.Sock.F.Read(data)
+		if r == -1 || (err != nil && err != io.EOF) {
+			return
+		}
+		if r == 0 {
+			// 连接关闭
+			c.State = StateClose
+			return
+		}
+		c.Cmd = append(c.Cmd, data[:r]...)
+		c.CmdRead += r
+		c.CmdLen = scanLineEnd(c.Cmd, c.CmdRead)
+		if c.CmdLen > 0 {
+			// 读取到完整命令直接return
+			return
+		}
+		if c.CmdRead == constant.LineBufSize {
+			c.CmdRead = 0
+			c.State = StateWantEndLine
+		}
+		return
+	case StateWantEndLine:
+		data := make([]byte, constant.LineBufSize-c.CmdRead)
+		r, err := c.Sock.F.Read(data)
+		if r == -1 || (err != nil && err != io.EOF) {
+			return
+		}
+		if r == 0 {
+			// 连接关闭
+			c.State = StateClose
+			return
+		}
+		c.Cmd = append(c.Cmd, data[:r]...)
+		c.CmdRead += r
+		c.CmdLen = scanLineEnd(c.Cmd, c.CmdRead)
+		if c.CmdLen > 0 {
+			ReplyMsg(c, MsgBadFormat)
+			// TODO 填充额外数据
+			return
+		}
+		if c.CmdRead == constant.LineBufSize {
+			c.CmdRead = 0
+		}
+		return
+	case StateBitbucket:
+	case StateWantData:
+	case StateSendWord:
+	case StateSendJob:
+	case StateWait:
 
+	}
 }
 
 // Start 开启服务

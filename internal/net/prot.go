@@ -30,7 +30,7 @@ const (
 	StateWantData    = 1 // conn expects a job data
 	StateSendJob     = 2 // conn sends job to the client
 	StateSendWord    = 3 // conn sends a line reply
-	StateWalt        = 4 // client awaits for the job reservation
+	StateWait        = 4 // client awaits for the job reservation
 	StateBitbucket   = 5 // conn discards content
 	StateClose       = 6 // conn should be closed
 	StateWantEndLine = 7 // skip until the end of a line

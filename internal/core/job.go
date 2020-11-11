@@ -19,7 +19,6 @@ import (
 
 	"github.com/sjatsh/beanstalk-go/internal/structure"
 	"github.com/sjatsh/beanstalk-go/internal/utils"
-	"github.com/sjatsh/beanstalk-go/lib/util/gconv"
 )
 
 const (
@@ -88,11 +87,8 @@ func JobCopy(j *structure.Job) *structure.Job {
 	if j == nil {
 		return nil
 	}
-	newJob := &structure.Job{}
-	if err := gconv.StructDeep(j, newJob); err != nil {
-		// TODO 打日志
-		return nil
-	}
+	j2 := *j
+	newJob := &j2
 	newJob.File = nil
 	newJob.R.State = Copy
 	return newJob

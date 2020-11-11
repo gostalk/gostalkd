@@ -70,7 +70,7 @@ func MakeConn(f *os.File, startState int, use, watch *structure.Tube) *structure
 	c.TickPos = 0
 	c.InCoons = 0
 
-	core.JobListRest(&c.ReservedJobs)
+	core.JobListRest(c.ReservedJobs)
 
 	CurConnCt++
 	TotConnCt++
@@ -142,7 +142,7 @@ func ConnSoonestJob(c *structure.Coon) *structure.Job {
 		return c.SoonestJob
 	}
 
-	for j := c.ReservedJobs.Next; j != &c.ReservedJobs; j = j.Next {
+	for j := c.ReservedJobs.Next; j != c.ReservedJobs; j = j.Next {
 		SetSoonestJob(c, j)
 	}
 	return c.SoonestJob
@@ -169,11 +169,11 @@ func CoonTickAt(c *structure.Coon) int64 {
 }
 
 func HasReservedJob(c *structure.Coon) bool {
-	return !core.JobListEmpty(&c.ReservedJobs)
+	return !core.JobListEmpty(c.ReservedJobs)
 }
 
 func EnqueueReservedJobs(c *structure.Coon) {
-	for !core.JobListEmpty(&c.ReservedJobs) {
+	for !core.JobListEmpty(c.ReservedJobs) {
 		j := core.JobListRemove(c.ReservedJobs.Next)
 		r := EnqueueJob(c.Srv, j, 0, false)
 		if !r {
@@ -227,7 +227,7 @@ func ReserveJob(c *structure.Coon, j *structure.Job) {
 
 	j.R.DeadlineAt = time.Now().UnixNano() + j.R.TTR
 	j.R.State = core.Reserved
-	core.JobListInsert(&c.ReservedJobs, j)
+	core.JobListInsert(c.ReservedJobs, j)
 	j.Reserver = c
 	c.PendingTimeout = -1
 	SetSoonestJob(c, j)
@@ -241,9 +241,10 @@ func SetSoonestJob(c *structure.Coon, j *structure.Job) {
 
 func ConnClose(c *structure.Coon) {
 
+	// 连接从epoll中删除
 	SockWant(&c.Sock, 0)
+
 	c.Sock.F.Close()
-	c.Sock.Ln.Close()
 	c.InJob = nil
 
 	if c.OutJob != nil && c.OutJob.R.State == core.Copy {

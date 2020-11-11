@@ -43,9 +43,9 @@ type Coon struct {
 	PendingTimeout int
 	HalfClosed     bool
 
-	Cmd     string
-	CmdLen  int
-	CmdRead int
+	Cmd     []byte // cmd命令数据
+	CmdLen  int    // cmd长度
+	CmdRead int    // cmd当前读取长度
 
 	Reply     string
 	ReplyLen  int
@@ -59,5 +59,5 @@ type Coon struct {
 	OutJobSent int
 
 	Watch        *Ms
-	ReservedJobs Job
+	ReservedJobs *Job
 }
