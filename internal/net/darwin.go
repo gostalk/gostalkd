@@ -41,10 +41,10 @@ func SockWant(s *structure.Socket, rw byte) (int, error) {
 	evs := make([]syscall.Kevent_t, 0)
 	ts := syscall.Timespec{}
 
-	if s.Added > 0 {
+	if s.Added {
 		evs = append(evs, syscall.Kevent_t{
 			Ident:  uint64(s.F.Fd()),
-			Filter: s.Added,
+			Filter: s.AddedFilter,
 			Flags:  syscall.EV_DELETE,
 		})
 	}
@@ -65,7 +65,10 @@ func SockWant(s *structure.Socket, rw byte) (int, error) {
 		}
 		ev.Flags = syscall.EV_ADD
 		ev.Udata = (*byte)(unsafe.Pointer(s))
-		s.Added = ev.Filter
+
+		s.Added = true
+		s.AddedFilter = ev.Filter
+
 		evs = append(evs, ev)
 	}
 	n, err := syscall.Kevent(kq, evs, nil, &ts)
@@ -90,7 +93,7 @@ func SockNext(s **structure.Socket, timeout time.Duration) (byte, error) {
 	ev := evs[0]
 	if r > 0 {
 		*s = (*structure.Socket)(unsafe.Pointer(ev.Udata))
-		if ev.Flags&syscall.EV_EOF > 0 {
+		if ev.Flags&syscall.EV_EOF != 0 {
 			return 'h', nil
 		}
 

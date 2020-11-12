@@ -14,7 +14,6 @@
 package core
 
 import (
-	"sync/atomic"
 	"time"
 
 	"github.com/sjatsh/beanstalk-go/internal/structure"
@@ -119,22 +118,18 @@ func BuryJob(s *structure.Server, j *structure.Job, updateStore bool) bool {
 	return true
 }
 
-func MakeJobWithID(pri uint32, delay, ttr, bodySize int64, tube *structure.Tube, id uint64)*structure.Job {
+func MakeJobWithID(pri uint32, delay, ttr, bodySize int64, tube *structure.Tube, id uint64) *structure.Job {
 	j := NewJob(bodySize)
 	if id > 0 {
 		j.R.ID = id
 		if id >= nextJobId {
-			atomic.StoreUint64(&nextJobId, id+1)
+			nextJobId = id + 1
 		}
 	} else {
-		for {
-			jobID := nextJobId
-			if atomic.CompareAndSwapUint64(&nextJobId, jobID, jobID+1) {
-				j.R.ID = jobID + 1
-				break
-			}
-		}
+		j.R.ID = nextJobId
 	}
+	nextJobId++
+
 	j.R.Pri = pri
 	j.R.Delay = delay
 	j.R.TTR = ttr
@@ -182,8 +177,8 @@ func JobListInsert(head, j *structure.Job) {
 	if !JobListEmpty(j) {
 		return
 	}
-	j.Prev = j.Prev
-	j.Next = j
+	j.Prev = head.Prev
+	j.Next = head
 
 	head.Prev.Next = j
 	head.Prev = j

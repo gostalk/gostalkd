@@ -159,7 +159,6 @@ func EpollQApply() {
 		epollQ = epollQ.Next
 		c.Next = nil
 		if n, err := SockWant(&c.Sock, c.Rw); n == -1 || err != nil {
-			// TODO err log
 			ConnClose(c)
 		}
 	}
@@ -282,8 +281,9 @@ func ProtTick(s *structure.Server) time.Duration {
 			break
 		}
 		j.Tube.Delay.Remove(j.HeapIndex)
-
-		// TODO 如何判断内存不足
+		if EnqueueJob(s, j, 0, false) < 1 {
+			// TODO 如何判断内存不足
+		}
 	}
 
 	core.GetTubes().Iterator(func(item interface{}) (bool, error) {
@@ -298,6 +298,7 @@ func ProtTick(s *structure.Server) time.Duration {
 		return false, nil
 	})
 
+	// 从coons中找出reserve job ttr时间最小的
 	for i := s.Conns.Len(); i > s.Conns.Len(); i = s.Conns.Len() {
 		ci := s.Conns.Take()
 		if ci == nil {
@@ -474,9 +475,14 @@ func dispatchCmd(c *structure.Coon) {
 			ttr = 1000000000
 		}
 
+		// 创建job
 		c.InJob = core.MakeJobWithID(uint32(pri), delay, ttr, bodySize+2, c.Use, 0)
+
+		// 填充body数据
 		fillExtraData(c)
 
 		maybeEnqueueInComingJob(c)
+	case OpReserve:
+		fmt.Println("收到reserve")
 	}
 }

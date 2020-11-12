@@ -107,6 +107,7 @@ func ConnTimeout(c *structure.Coon) {
 	if ConnWaiting(c) && ConnDeadLineSoon(c) {
 		shoudTimeOut = true
 	}
+
 	for j := ConnSoonestJob(c); j != nil; j = ConnSoonestJob(c) {
 		if j.R.DeadlineAt >= time.Now().UnixNano() {
 			break
@@ -116,8 +117,8 @@ func ConnTimeout(c *structure.Coon) {
 		}
 		utils.TimeoutCt++
 		j.R.TimeoutCt++
-		if EnqueueJob(c.Srv, RemoveThisReservedJob(c, j), 0, false) == 1 {
-			// TODO bury_job
+		if EnqueueJob(c.Srv, RemoveThisReservedJob(c, j), 0, false) < 1 {
+			core.BuryJob(c.Srv, j, false) /* out of memory, so bury it */
 		}
 		ConnSched(c)
 	}
@@ -244,9 +245,16 @@ func SetSoonestJob(c *structure.Coon, j *structure.Job) {
 func ConnClose(c *structure.Coon) {
 
 	// 连接从epoll中删除
-	SockWant(&c.Sock, 0)
+	if _, err := SockWant(&c.Sock, 0); err != nil {
+		return
+	}
 
-	c.Sock.F.Close()
+	if c.Sock.Ln != nil {
+		c.Sock.Ln.Close()
+	}
+	if c.Sock.F != nil {
+		c.Sock.F.Close()
+	}
 	c.InJob = nil
 
 	if c.OutJob != nil && c.OutJob.R.State == core.Copy {

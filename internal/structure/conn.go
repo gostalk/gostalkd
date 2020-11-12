@@ -19,11 +19,12 @@ import (
 )
 
 type Socket struct {
-	F     *os.File     // 打开文件
-	Ln    net.Listener // 监听器
-	H     Handle       // 处理函数
-	X     interface{}  // 服务器对象|Conn
-	Added int16        // 是否已经添加到epoll
+	F           *os.File     // 打开文件
+	Ln          net.Listener // 监听器
+	H           Handle       // 处理函数
+	X           interface{}  // 服务器对象|Conn
+	Added       bool         // 是否已经添加到epoll
+	AddedFilter int16
 }
 
 type Handle func(interface{}, byte)

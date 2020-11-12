@@ -34,9 +34,13 @@ func TestConn(t *testing.T) {
 	}
 	defer c.Close()
 
-	if _, err := c.Write([]byte("put 1 10 10 5\r\nhello\r\n")); err != nil {
+	if _, err := c.Write([]byte("put 1 3 10 5\r\nhello\r\n")); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := c.Write([]byte("reserve\r\n")); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(5 * time.Second)
 
 	reply := make([]byte, 1024)
 	r, err := c.Read(reply)
@@ -44,8 +48,8 @@ func TestConn(t *testing.T) {
 		t.Fatal(err)
 	}
 	reply = reply[:r]
-
 	t.Log(string(reply))
+
 }
 
 func TestSockWant(t *testing.T) {

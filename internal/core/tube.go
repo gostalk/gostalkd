@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	tubes       = structure.NewMs()  // tubes链表
-	defaultTube = NewTube("default") // 默认tube
+	tubes       = structure.NewMs()         // tubes链表
+	defaultTube = TubeFindOrMake("default") // 默认tube
 )
 
 func NewTube(name string) *structure.Tube {

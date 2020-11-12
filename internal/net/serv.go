@@ -16,6 +16,7 @@ package net
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math"
 	net "net"
 	"os"
@@ -203,6 +204,7 @@ func enqueueInComingJob(c *structure.Coon) {
 	c.InJob = nil
 	c.InJobRead = 0
 
+	// body必须以\r\n结尾
 	if bytes.Index(j.Body, []byte("\r\n")) == len(j.Body)-1 {
 		core.JobFree(j)
 		ReplyMsg(c, MsgExpectedCrlf)
@@ -240,6 +242,7 @@ func enqueueInComingJob(c *structure.Coon) {
 		return
 	}
 
+	// 如果报错job加入休眠队列
 	core.BuryJob(c.Srv, j, false)
 	replyLine(c, StateSendWord, MsgBuriedFmt, j.R.ID)
 }
@@ -269,11 +272,10 @@ func connProcessIO(c *structure.Coon) {
 	case StateWantCommand:
 		data := make([]byte, constant.LineBufSize-c.CmdRead)
 		r, err := c.Sock.F.Read(data)
-		if r == -1 || err != nil {
+		if err != nil && err != io.EOF {
 			return
 		}
-		if r == 0 {
-			// 连接关闭
+		if err == io.EOF {
 			c.State = StateClose
 			return
 		}
@@ -291,11 +293,10 @@ func connProcessIO(c *structure.Coon) {
 	case StateWantEndLine:
 		data := make([]byte, constant.LineBufSize-c.CmdRead)
 		r, err := c.Sock.F.Read(data)
-		if r == -1 || err != nil {
+		if err != nil && err != io.EOF {
 			return
 		}
-		if r == 0 {
-			// 连接关闭
+		if err == io.EOF {
 			c.State = StateClose
 			return
 		}
@@ -314,10 +315,10 @@ func connProcessIO(c *structure.Coon) {
 		toread := int64(math.Min(float64(c.InJobRead), float64(constant.BucketBufSize)))
 		bucket := make([]byte, toread)
 		r, err := c.Sock.F.Read(bucket)
-		if r == -1 || err != nil {
+		if err != nil && err != io.EOF {
 			return
 		}
-		if r == 0 {
+		if err == io.EOF {
 			c.State = StateClose
 			return
 		}
@@ -329,10 +330,10 @@ func connProcessIO(c *structure.Coon) {
 		j := c.InJob
 		data := make([]byte, j.R.BodySize-c.InJobRead)
 		r, err := c.Sock.F.Read(data)
-		if r == -1 || err != nil {
+		if err != nil && err != io.EOF {
 			return
 		}
-		if r == 0 {
+		if err == io.EOF {
 			c.State = StateClose
 			return
 		}
@@ -341,30 +342,28 @@ func connProcessIO(c *structure.Coon) {
 	case StateSendWord:
 		replySend := c.Reply[c.ReplySent : c.ReplySent+c.ReplyLen-c.ReplySent]
 		r, err := c.Sock.F.Write(replySend)
-		if r == -1 || err != nil {
+		if err != nil && err != io.EOF {
 			return
 		}
-		if r == 0 {
+		if err == io.EOF {
 			c.State = StateClose
 			return
 		}
-
 		c.ReplySent += int64(r)
 		if c.ReplySent == c.ReplyLen {
 			connWantCommand(c)
 			return
 		}
-
 	case StateSendJob:
 		j := c.OutJob
 		sendData := bytes.Buffer{}
 		sendData.Write(c.Reply[c.ReplySent : c.ReplyLen-c.ReplySent+1])
 		sendData.Write(j.Body[c.OutJobSent : j.R.BodySize-c.OutJobSent+1])
 		r, err := c.Sock.F.Write(sendData.Bytes())
-		if r == -1 || err != nil {
+		if err != nil && err != io.EOF {
 			return
 		}
-		if r == 0 {
+		if err == io.EOF {
 			c.State = StateClose
 			return
 		}
@@ -373,7 +372,6 @@ func connProcessIO(c *structure.Coon) {
 			c.OutJobSent += c.ReplySent - c.ReplyLen
 			c.ReplySent = c.ReplyLen
 		}
-
 		if c.OutJobSent == j.R.BodySize {
 			wantCommand(c)
 			return
@@ -394,11 +392,11 @@ func Start(s *structure.Server) error {
 	for {
 		period := ProtTick(s)
 		rw, err := SockNext(&sock, period)
-		if int(rw) == -1 || err != nil {
+		if err != nil {
 			// TODO error log
 			os.Exit(1)
 		}
-		if rw > 0 {
+		if rw != 0 {
 			sock.H(sock.X, rw)
 		}
 	}
