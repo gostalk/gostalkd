@@ -23,24 +23,44 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sjatsh/beanstalk-go/constant"
 	"github.com/sjatsh/beanstalk-go/model"
 	"github.com/sjatsh/beanstalk-go/net"
 	"github.com/sjatsh/beanstalk-go/utils"
 )
 
-var (
-	port                  = flag.Int("p", constant.DefaultPort, "listen on port (default is 11400)")
-	bingLogDir            = flag.String("b", "", "write-ahead log directory")                                                                                                                      // binlog dir
-	fsyncMs               = flag.Int("f", constant.DefaultFsyncMs, "fsync at most once every MS milliseconds (default is 50ms);use -f0 for \"always fsync\"")                                      // fsync binlog ms
-	fsyncNever            = flag.Bool("F", false, "never fsync")                                                                                                                                   // never fsync
-	listenAddr            = flag.String("l", constant.DefaultListenAddr, "listen on address (default is 0.0.0.0)")                                                                                 // server listen addr
-	user                  = flag.String("u", "", "become user and group")                                                                                                                          // become user and group
-	maxJobSize            = flag.Int("z", constant.DefaultMaxJobSize, "set the maximum job size in bytes (default is 65535);max allowed is 1073741824 bytes")                                      // max job size
-	eachWriteAheadLogSize = flag.Int("s", constant.DefaultEachWriteAheadLogSize, "set the size of each write-ahead log file (default is 10485760);will be rounded up to a multiple of 4096 bytes") // each write ahead log size
-	showVersion           = flag.Bool("v", false, "show version information")                                                                                                                      // show version
-	verbosity             = flag.Bool("V", false, "increase verbosity")                                                                                                                            // increase verbosity
-)
+func main() {
+	flag.Parse()
+	rand.Seed(time.Now().UnixNano())
+
+	srv, err := net.NewServer(
+		model.WithPort(*utils.Port),
+		model.WithAddr(*utils.ListenAddr),
+		model.WithUser(*utils.User),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	utils.StartedAt = time.Now().UnixNano()
+	utils.InstanceHex, err = utils.RandInstanceHex()
+	if err != nil {
+		panic(err)
+	}
+	utils.UtsName, err = utils.GetUname()
+	if err != nil {
+		panic(err)
+	}
+
+	if *utils.User != "" {
+		su(*utils.User)
+	}
+
+	setSigHandlers()
+
+	if net.Start(srv) != nil {
+		panic(err)
+	}
+}
 
 func su(user string) {
 	usr, err := osUser.Lookup(user)
@@ -83,42 +103,5 @@ func setSigHandlers() {
 		sigterm := make(chan os.Signal)
 		signal.Notify(sigusr, syscall.SIGTERM)
 		handleSigtermPid1(sigterm)
-	}
-}
-
-var srv *model.Server
-
-func main() {
-	flag.Parse()
-	rand.Seed(time.Now().UnixNano())
-
-	var err error
-	srv, err = net.NewServer(
-		model.WithPort(*port),
-		model.WithAddr(*listenAddr),
-		model.WithUser(*user),
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	utils.StartedAt = time.Now().UnixNano()
-	utils.InstanceHex, err = utils.RandInstanceHex()
-	if err != nil {
-		panic(err)
-	}
-	utils.UtsName, err = utils.GetUname()
-	if err != nil {
-		panic(err)
-	}
-
-	if *user != "" {
-		su(*user)
-	}
-
-	setSigHandlers()
-
-	if err := net.Start(srv); err != nil {
-		panic(err)
 	}
 }
