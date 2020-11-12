@@ -115,9 +115,9 @@ func RemoveThisReservedJob(c *structure.Coon, j *structure.Job) *structure.Job {
 }
 
 func ConnTimeout(c *structure.Coon) {
-	shoudTimeOut := false
+	shouldTimeOut := false
 	if ConnWaiting(c) && connDeadLineSoon(c) {
-		shoudTimeOut = true
+		shouldTimeOut = true
 	}
 
 	for j := ConnSoonestJob(c); j != nil; j = ConnSoonestJob(c) {
@@ -135,7 +135,7 @@ func ConnTimeout(c *structure.Coon) {
 		ConnSched(c)
 	}
 
-	if shoudTimeOut {
+	if shouldTimeOut {
 		RemoveWaitingCoon(c)
 		ReplyMsg(c, MsgDeadlineSoon)
 	} else if ConnWaiting(c) && c.PendingTimeout >= 0 {
