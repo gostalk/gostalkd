@@ -16,40 +16,21 @@ package core
 import (
 	"time"
 
-	"github.com/sjatsh/beanstalk-go/internal/structure"
-	"github.com/sjatsh/beanstalk-go/internal/utils"
+	"github.com/sjatsh/beanstalk-go/constant"
+	"github.com/sjatsh/beanstalk-go/model"
+	"github.com/sjatsh/beanstalk-go/structure"
+	"github.com/sjatsh/beanstalk-go/utils"
 )
 
-const (
-	Invalid int32 = iota
-	Ready
-	Reserved
-	Buried
-	Delayed
-	Copy
+var (
+	nextJobId uint64 = 1
+	allJobs          = make(map[uint64]*model.Job)
 )
 
-func JobState(state int32) string {
-	switch state {
-	case Ready:
-		return "ready"
-	case Reserved:
-		return "reserved"
-	case Buried:
-		return "buried"
-	case Delayed:
-		return "delayed"
-	default:
-		return "invalid"
-	}
-}
-
-var nextJobId uint64 = 1
-var allJobs = make(map[uint64]*structure.Job)
-
-func NewJob(bodySize ...int64) *structure.Job {
-	j := &structure.Job{
-		R: structure.JobRec{},
+// NewJob 创建一个新Job对象
+func NewJob(bodySize ...int64) *model.Job {
+	j := &model.Job{
+		R: model.JobRec{},
 	}
 	j.R.CreateAt = time.Now().UnixNano()
 	if len(bodySize) > 0 {
@@ -59,71 +40,29 @@ func NewJob(bodySize ...int64) *structure.Job {
 	return j
 }
 
-func ListReset(j *structure.Job) {
-	j.Prev = j
-	j.Next = j
-}
-
-func JobStore(j *structure.Job) {
-	allJobs[j.R.ID] = j
-	utils.AllJobsUsed++
-}
-
-func GetJobState(j *structure.Job) string {
-	state := JobState(j.R.State)
-	return state
-}
-
-func JobFind(id uint64) *structure.Job {
-	j, ok := allJobs[id]
-	if !ok {
-		return nil
+// JobState 通过state id获取job详细状态
+func JobState(state int32) string {
+	switch state {
+	case constant.Ready:
+		return "ready"
+	case constant.Reserved:
+		return "reserved"
+	case constant.Buried:
+		return "buried"
+	case constant.Delayed:
+		return "delayed"
+	default:
+		return "invalid"
 	}
-	return j
 }
 
-func JobCopy(j *structure.Job) *structure.Job {
-	if j == nil {
-		return nil
-	}
-	j2 := *j
-	newJob := &j2
-	newJob.File = nil
-	newJob.R.State = Copy
-	return newJob
-}
-
-func BuryJob(s *structure.Server, j *structure.Job, updateStore bool) bool {
-	if updateStore {
-		// TODO int z = walresvupdate(&s->wal);
-		// if (!z)
-		// return 0;
-		// j->walresv += z;
-	}
-
-	JobListInsert(j, j.Tube.Buried)
-	utils.GlobalState.BuriedCt++
-	j.Tube.Stat.BuriedCt++
-	j.R.State = Buried
-	j.Reserver = nil
-	j.R.BuryCt++
-
-	if updateStore {
-		// TODO if !walwrite(&s- > wal, j) {
-		// 	return 0
-		// }
-		// walmaint(&s- > wal)
-	}
-
-	return true
-}
-
-func MakeJobWithID(pri uint32, delay, ttr, bodySize int64, tube *structure.Tube, id uint64) *structure.Job {
+// MakeJobWithID 创建一个带ID的job对象
+func MakeJobWithID(pri uint32, delay, ttr, bodySize int64, tube *model.Tube, id ...uint64) *model.Job {
 	j := NewJob(bodySize)
-	if id > 0 {
-		j.R.ID = id
-		if id >= nextJobId {
-			nextJobId = id + 1
+	if len(id) > 0 {
+		j.R.ID = id[0]
+		if id[0] >= nextJobId {
+			nextJobId = id[0] + 1
 		}
 	} else {
 		j.R.ID = nextJobId
@@ -140,26 +79,85 @@ func MakeJobWithID(pri uint32, delay, ttr, bodySize int64, tube *structure.Tube,
 	return j
 }
 
-func JobFree(j *structure.Job) {
+func BuryJob(s *model.Server, j *model.Job, updateStore bool) bool {
+	if updateStore {
+		// TODO int z = walresvupdate(&s->wal);
+		// if (!z)
+		// return 0;
+		// j->walresv += z;
+	}
+
+	JobListInsert(j, j.Tube.Buried)
+	utils.GlobalState.BuriedCt++
+	j.Tube.Stat.BuriedCt++
+	j.R.State = constant.Buried
+	j.Reservoir = nil
+	j.R.BuryCt++
+
+	if updateStore {
+		// TODO if !walwrite(&s- > wal, j) {
+		// 	return 0
+		// }
+		// walmaint(&s- > wal)
+	}
+
+	return true
+}
+
+func ListReset(j *model.Job) {
+	j.Prev = j
+	j.Next = j
+}
+
+func JobStore(j *model.Job) {
+	allJobs[j.R.ID] = j
+	utils.AllJobsUsed++
+}
+
+func GetJobState(j *model.Job) string {
+	state := JobState(j.R.State)
+	return state
+}
+
+func JobFind(id uint64) *model.Job {
+	j, ok := allJobs[id]
+	if !ok {
+		return nil
+	}
+	return j
+}
+
+func JobCopy(j *model.Job) *model.Job {
+	if j == nil {
+		return nil
+	}
+	j2 := *j
+	newJob := &j2
+	newJob.File = nil
+	newJob.R.State = constant.Copy
+	return newJob
+}
+
+func JobFree(j *model.Job) {
 	if j != nil {
 		j.Tube = nil
-		if j.R.State != Copy {
+		if j.R.State != constant.Copy {
 			delete(allJobs, j.R.ID)
 		}
 	}
 }
 
-func JobListRest(j *structure.Job) {
+func JobListRest(j *model.Job) {
 	j.Prev = j
 	j.Next = j
 }
 
-func JobListEmpty(j *structure.Job) bool {
+func JobListEmpty(j *model.Job) bool {
 	isEmpty := j.Next == j && j.Prev == j
 	return isEmpty
 }
 
-func JobListRemove(j *structure.Job) *structure.Job {
+func JobListRemove(j *model.Job) *model.Job {
 	if j == nil {
 		return nil
 	}
@@ -173,7 +171,7 @@ func JobListRemove(j *structure.Job) *structure.Job {
 	return j
 }
 
-func JobListInsert(head, j *structure.Job) {
+func JobListInsert(head, j *model.Job) {
 	if !JobListEmpty(j) {
 		return
 	}
@@ -185,12 +183,12 @@ func JobListInsert(head, j *structure.Job) {
 }
 
 func JobSetPos(item *structure.Item, pos int) {
-	item.Value.(*structure.Job).HeapIndex = pos
+	item.Value.(*model.Job).HeapIndex = pos
 }
 
 func JobPriLess(ja, jb *structure.Item) bool {
-	a := ja.Value.(*structure.Job)
-	b := jb.Value.(*structure.Job)
+	a := ja.Value.(*model.Job)
+	b := jb.Value.(*model.Job)
 	if a.R.Pri < b.R.Pri {
 		return true
 	}
@@ -201,8 +199,8 @@ func JobPriLess(ja, jb *structure.Item) bool {
 }
 
 func JobDelayLess(ja, jb *structure.Item) bool {
-	a := ja.Value.(*structure.Job)
-	b := jb.Value.(*structure.Job)
+	a := ja.Value.(*model.Job)
+	b := jb.Value.(*model.Job)
 	if a.R.DeadlineAt < b.R.DeadlineAt {
 		return true
 	}

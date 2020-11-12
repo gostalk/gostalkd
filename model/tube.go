@@ -11,21 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package structure
+package model
 
 import (
+	"github.com/sjatsh/beanstalk-go/structure"
+	"github.com/sjatsh/beanstalk-go/utils"
 )
 
-type File struct {
-	Next *File
-	Refs uint
-	Seq int
-	IsWOpen int
-	Fd int
-	Free int
-	Resv int
-	Path string
+type Tube struct {
+	Name         string
+	Ready        *structure.Heap
+	Delay        *structure.Heap
+	WaitingConns *structure.Ms
+	Stat         utils.State
+	// struct stats stat;              // job各个状态统计
+	UsingCt    int // tube被多少coon监听
+	WatchingCt int // waiting连接个数,coon加入waiting链表的时候+1 删除时-1
 
-	W       *Wal
-	JobList Job
+	Pause     int64 // 暂停时间，单位nsec，pause-tube 命令设置
+	UnpauseAt int64 // 暂停结束时间的时间戳
+
+	Buried *Job // 休眠状态job链表
 }

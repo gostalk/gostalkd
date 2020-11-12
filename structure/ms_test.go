@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/sjatsh/beanstalk-go/internal/structure"
+	"github.com/sjatsh/beanstalk-go/structure"
 )
 
 type TestMs struct {

@@ -16,23 +16,27 @@ package utils
 import (
 	"golang.org/x/sys/unix"
 
-	"github.com/sjatsh/beanstalk-go/internal/constant"
+	"github.com/sjatsh/beanstalk-go/constant"
 )
 
 var (
 	// StartedAt serve started time
 	StartedAt int64
-	// OpCt Operation command count statistics
-	OpCt = make([]constant.OpType, constant.OpTotal)
 	// InstanceHex hex-encoded len of instance_id_bytes
 	InstanceHex string
 	// UtsName
 	UtsName *unix.Utsname
-	// AllJobsUsed
-	AllJobsUsed int64
 
-	ReadyCt   int64
-	TimeoutCt uint64
+	// OpCt Operation command count statistics
+	OpCt = make([]int, constant.TpALOps)
+	AllJobsUsed int64
+	ReadyCt     int64
+	TimeoutCt   uint64
+
+	CurConnCt     uint64
+	CurWorkerCt   uint64
+	CurProducerCt uint64
+	TotConnCt     uint64
 
 	GlobalState = State{}
 )

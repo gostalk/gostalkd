@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package core
+package utils
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/sjatsh/beanstalk-go/internal/constant"
+	"github.com/sjatsh/beanstalk-go/constant"
 )
 
 var DrainMode int

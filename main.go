@@ -23,11 +23,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sjatsh/beanstalk-go/internal/constant"
-	"github.com/sjatsh/beanstalk-go/internal/core"
-	"github.com/sjatsh/beanstalk-go/internal/net"
-	"github.com/sjatsh/beanstalk-go/internal/structure"
-	"github.com/sjatsh/beanstalk-go/internal/utils"
+	"github.com/sjatsh/beanstalk-go/constant"
+	"github.com/sjatsh/beanstalk-go/model"
+	"github.com/sjatsh/beanstalk-go/net"
+	"github.com/sjatsh/beanstalk-go/utils"
 )
 
 var (
@@ -61,7 +60,7 @@ func su(user string) {
 func enterDrainMode(ch chan os.Signal) {
 	go func() {
 		<-ch
-		core.DrainMode = 1
+		utils.DrainMode = 1
 	}()
 }
 
@@ -87,7 +86,7 @@ func setSigHandlers() {
 	}
 }
 
-var srv *structure.Server
+var srv *model.Server
 
 func main() {
 	flag.Parse()
@@ -95,20 +94,20 @@ func main() {
 
 	var err error
 	srv, err = net.NewServer(
-		net.WithPort(*port),
-		net.WithAddr(*listenAddr),
-		net.WithUser(*user),
+		model.WithPort(*port),
+		model.WithAddr(*listenAddr),
+		model.WithUser(*user),
 	)
 	if err != nil {
 		panic(err)
 	}
 
 	utils.StartedAt = time.Now().UnixNano()
-	utils.InstanceHex, err = core.RandInstanceHex()
+	utils.InstanceHex, err = utils.RandInstanceHex()
 	if err != nil {
 		panic(err)
 	}
-	utils.UtsName, err = core.GetUname()
+	utils.UtsName, err = utils.GetUname()
 	if err != nil {
 		panic(err)
 	}

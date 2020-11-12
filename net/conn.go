@@ -19,36 +19,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/sjatsh/beanstalk-go/internal/core"
-	"github.com/sjatsh/beanstalk-go/internal/structure"
-	"github.com/sjatsh/beanstalk-go/internal/utils"
+	"github.com/sjatsh/beanstalk-go/constant"
+	"github.com/sjatsh/beanstalk-go/core"
+	"github.com/sjatsh/beanstalk-go/model"
+	"github.com/sjatsh/beanstalk-go/structure"
+	"github.com/sjatsh/beanstalk-go/utils"
 )
 
-const (
-	SafetyMargin = 1000000000
-
-	ConnTypeProducer = 1 // 是生产者
-	ConnTypeWorker   = 2 // 有reserve job添加WORKER类型
-	ConnTypeWaiting  = 4 // 如果连接等待数据 设置WAITING类型
-)
-
-var (
-	CurConnCt     = 0
-	CurWorkerCt   = 0
-	CurProducerCt = 0
-	TotConnCt     = 0
-)
-
-func onWatch(a *structure.Ms, t interface{}, i int) {
-	t.(*structure.Tube).WatchingCt++
-}
-
-func onIgnore(a *structure.Ms, t interface{}, i int) {
-	t.(*structure.Tube).WatchingCt--
-}
-
-func MakeConn(f *os.File, startState int, use, watch *structure.Tube) *structure.Coon {
-	c := &structure.Coon{
+// MakeConn
+func NewConn(f *os.File, startState int, use, watch *model.Tube) *model.Coon {
+	c := &model.Coon{
 		ReservedJobs: core.NewJob(),
 	}
 	w := structure.NewMs()
@@ -74,27 +54,39 @@ func MakeConn(f *os.File, startState int, use, watch *structure.Tube) *structure
 
 	core.JobListRest(c.ReservedJobs)
 
-	CurConnCt++
-	TotConnCt++
+	utils.CurConnCt++
+	utils.TotConnCt++
 	return c
 }
 
-func connDeadLineSoon(c *structure.Coon) bool {
+// onWatch
+func onWatch(a *structure.Ms, t interface{}, i int) {
+	t.(*model.Tube).WatchingCt++
+}
+
+// onIgnore
+func onIgnore(a *structure.Ms, t interface{}, i int) {
+	t.(*model.Tube).WatchingCt--
+}
+
+// connDeadLineSoon
+func connDeadLineSoon(c *model.Coon) bool {
 	t := time.Now().UnixNano()
-	j := ConnSoonestJob(c)
+	j := connSoonestJob(c)
 	if j == nil {
 		return false
 	}
-	if t < j.R.DeadlineAt-SafetyMargin {
+	if t < j.R.DeadlineAt-constant.SafetyMargin {
 		return false
 	}
 	return true
 }
 
-func connReady(c *structure.Coon) bool {
+// connReady
+func connReady(c *model.Coon) bool {
 	ready := false
 	c.Watch.Iterator(func(item interface{}) (bool, error) {
-		if item.(*structure.Tube).Ready.Len() > 0 {
+		if item.(*model.Tube).Ready.Len() > 0 {
 			ready = true
 			return true, nil
 		}
@@ -103,24 +95,24 @@ func connReady(c *structure.Coon) bool {
 	return ready
 }
 
-func RemoveThisReservedJob(c *structure.Coon, j *structure.Job) *structure.Job {
+func removeThisReservedJob(c *model.Coon, j *model.Job) *model.Job {
 	core.JobListRemove(j)
 	if j != nil {
 		utils.GlobalState.ReservedCt--
 		j.Tube.Stat.ReservedCt--
-		j.Reserver = nil
+		j.Reservoir = nil
 	}
 	c.SoonestJob = nil
 	return j
 }
 
-func ConnTimeout(c *structure.Coon) {
+func connTimeout(c *model.Coon) {
 	shouldTimeOut := false
-	if ConnWaiting(c) && connDeadLineSoon(c) {
+	if connWaiting(c) && connDeadLineSoon(c) {
 		shouldTimeOut = true
 	}
 
-	for j := ConnSoonestJob(c); j != nil; j = ConnSoonestJob(c) {
+	for j := connSoonestJob(c); j != nil; j = connSoonestJob(c) {
 		if j.R.DeadlineAt >= time.Now().UnixNano() {
 			break
 		}
@@ -129,48 +121,47 @@ func ConnTimeout(c *structure.Coon) {
 		}
 		utils.TimeoutCt++
 		j.R.TimeoutCt++
-		if EnqueueJob(c.Srv, RemoveThisReservedJob(c, j), 0, false) < 1 {
+		if enqueueJob(c.Srv, removeThisReservedJob(c, j), 0, false) < 1 {
 			core.BuryJob(c.Srv, j, false) /* out of memory, so bury it */
 		}
-		ConnSched(c)
+		connSched(c)
 	}
 
 	if shouldTimeOut {
-		RemoveWaitingCoon(c)
-		ReplyMsg(c, MsgDeadlineSoon)
-	} else if ConnWaiting(c) && c.PendingTimeout >= 0 {
+		removeWaitingCoon(c)
+		replyMsg(c, constant.MsgDeadlineSoon)
+	} else if connWaiting(c) && c.PendingTimeout >= 0 {
 		c.PendingTimeout = -1
-		RemoveWaitingCoon(c)
-		ReplyMsg(c, MsgTimedOut)
+		removeWaitingCoon(c)
+		replyMsg(c, constant.MsgTimedOut)
 	}
 }
 
-func ConnWaiting(c *structure.Coon) bool {
-	if c.Type&ConnTypeWaiting > 0 {
+func connWaiting(c *model.Coon) bool {
+	if c.Type&constant.ConnTypeWaiting > 0 {
 		return true
 	}
 	return false
 }
 
-func ConnSoonestJob(c *structure.Coon) *structure.Job {
+func connSoonestJob(c *model.Coon) *model.Job {
 	if c.SoonestJob != nil {
 		return c.SoonestJob
 	}
-
 	for j := c.ReservedJobs.Next; j != c.ReservedJobs; j = j.Next {
-		SetSoonestJob(c, j)
+		setSoonestJob(c, j)
 	}
 	return c.SoonestJob
 }
 
-func CoonTickAt(c *structure.Coon) int64 {
+func coonTickAt(c *model.Coon) int64 {
 	margin, shouldTimeout := int64(0), int64(0)
 	t := int64(math.MaxInt64)
-	if ConnWaiting(c) {
-		margin = SafetyMargin
+	if connWaiting(c) {
+		margin = constant.SafetyMargin
 	}
-	if HasReservedJob(c) {
-		t = ConnSoonestJob(c).R.DeadlineAt - time.Now().UnixNano() - margin
+	if hasReservedJob(c) {
+		t = connSoonestJob(c).R.DeadlineAt - time.Now().UnixNano() - margin
 		shouldTimeout = 1
 	}
 	if c.PendingTimeout >= 0 {
@@ -183,14 +174,14 @@ func CoonTickAt(c *structure.Coon) int64 {
 	return 0
 }
 
-func HasReservedJob(c *structure.Coon) bool {
+func hasReservedJob(c *model.Coon) bool {
 	return !core.JobListEmpty(c.ReservedJobs)
 }
 
-func EnqueueReservedJobs(c *structure.Coon) {
+func enqueueReservedJobs(c *model.Coon) {
 	for !core.JobListEmpty(c.ReservedJobs) {
 		j := core.JobListRemove(c.ReservedJobs.Next)
-		r := EnqueueJob(c.Srv, j, 0, false)
+		r := enqueueJob(c.Srv, j, 0, false)
 		if r == 0 {
 			core.BuryJob(c.Srv, j, false)
 		}
@@ -200,64 +191,64 @@ func EnqueueReservedJobs(c *structure.Coon) {
 	}
 }
 
-func ConnSched(c *structure.Coon) {
+func connSched(c *model.Coon) {
 	if c.InCoons > 0 {
-		c.Srv.Conns.Remove(c.TickPos)
+		c.Srv.Connes.Remove(c.TickPos)
 		c.InCoons = 0
 	}
-	c.TickAt = CoonTickAt(c)
+	c.TickAt = coonTickAt(c)
 	if c.TickAt > 0 {
-		c.Srv.Conns.Push(&structure.Item{Value: c})
+		c.Srv.Connes.Push(&structure.Item{Value: c})
 		c.InCoons = 1
 	}
 }
 
-func ConnLess(ca, cb *structure.Item) bool {
-	a := ca.Value.(*structure.Coon)
-	b := cb.Value.(*structure.Coon)
+func connLess(ca, cb *structure.Item) bool {
+	a := ca.Value.(*model.Coon)
+	b := cb.Value.(*model.Coon)
 	return a.TickAt < b.TickAt
 }
 
-func ConnSetPos(item *structure.Item, i int) {
-	item.Value.(*structure.Coon).TickPos = i
+func connSetPos(item *structure.Item, i int) {
+	item.Value.(*model.Coon).TickPos = i
 }
 
-func RemoveWaitingCoon(c *structure.Coon) {
-	if c.Type&ConnTypeWaiting <= 0 {
+func removeWaitingCoon(c *model.Coon) {
+	if c.Type&constant.ConnTypeWaiting <= 0 {
 		return
 	}
-	c.Type &= ConnTypeWaiting
+	c.Type &= constant.ConnTypeWaiting
 	utils.GlobalState.WaitingCt--
 	c.Watch.Iterator(func(item interface{}) (bool, error) {
-		t := item.(*structure.Tube)
+		t := item.(*model.Tube)
 		t.Stat.WaitingCt--
 		t.WaitingConns.Remove(c)
 		return false, nil
 	})
 }
 
-func ReserveJob(c *structure.Coon, j *structure.Job) {
+func reserveJob(c *model.Coon, j *model.Job) {
 	j.Tube.Stat.ReservedCt++
 	j.R.ReserveCt++
 
 	j.R.DeadlineAt = time.Now().UnixNano() + j.R.TTR
-	j.R.State = core.Reserved
+	j.R.State = constant.Reserved
 	core.JobListInsert(c.ReservedJobs, j)
-	j.Reserver = c
+	j.Reservoir = c
 	c.PendingTimeout = -1
-	SetSoonestJob(c, j)
+	setSoonestJob(c, j)
 }
 
-func SetSoonestJob(c *structure.Coon, j *structure.Job) {
+func setSoonestJob(c *model.Coon, j *model.Job) {
 	if c.SoonestJob == nil || j.R.DeadlineAt < c.SoonestJob.R.DeadlineAt {
 		c.SoonestJob = j
 	}
 }
 
-func ConnClose(c *structure.Coon) {
+func connClose(c *model.Coon) {
 
 	// 连接从epoll中删除
-	if _, err := SockWant(&c.Sock, 0); err != nil {
+	if sockWant(&c.Sock, 0) != nil {
 		return
 	}
 
@@ -269,7 +260,7 @@ func ConnClose(c *structure.Coon) {
 	}
 	c.InJob = nil
 
-	if c.OutJob != nil && c.OutJob.R.State == core.Copy {
+	if c.OutJob != nil && c.OutJob.R.State == constant.Copy {
 		c.OutJob = nil
 	}
 
@@ -277,18 +268,18 @@ func ConnClose(c *structure.Coon) {
 	c.OutJob = nil
 	c.InJobRead = 0
 
-	if c.Type&ConnTypeProducer > 0 {
-		CurProducerCt--
+	if c.Type&constant.ConnTypeProducer > 0 {
+		utils.CurProducerCt--
 	}
-	if c.Type&ConnTypeWorker > 0 {
-		CurWorkerCt--
+	if c.Type&constant.ConnTypeWorker > 0 {
+		utils.CurWorkerCt--
 	}
 
-	CurConnCt--
+	utils.CurConnCt--
 
-	RemoveWaitingCoon(c)
-	if HasReservedJob(c) {
-		EnqueueReservedJobs(c)
+	removeWaitingCoon(c)
+	if hasReservedJob(c) {
+		enqueueReservedJobs(c)
 	}
 
 	c.Watch.Clear()
@@ -296,7 +287,7 @@ func ConnClose(c *structure.Coon) {
 	c.Use = nil
 
 	if c.InCoons > 0 {
-		c.Srv.Conns.Remove(c.TickPos)
+		c.Srv.Connes.Remove(c.TickPos)
 		c.InCoons = 0
 	}
 	c = nil

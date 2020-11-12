@@ -23,7 +23,7 @@ type Ms struct {
 
 type MsEventFn func(ms *Ms, item interface{}, i int)
 
-// NewMs
+// NewMs 创建一个队列
 func NewMs() *Ms {
 	return &Ms{
 		items: []interface{}{},

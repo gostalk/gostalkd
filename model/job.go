@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package structure
+package model
 
 type JobRec struct {
 	ID       uint64
@@ -48,7 +48,7 @@ type Job struct {
 	HeapIndex   int
 	File        *File
 	FPre, FNext *Job
-	Reserver    *Coon
+	Reservoir   *Coon
 
 	WalResv int
 	WalUsed int

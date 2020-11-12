@@ -13,7 +13,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package net_test
+package net
 
 import (
 	"bytes"
@@ -25,8 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sjatsh/beanstalk-go/internal/net"
-	"github.com/sjatsh/beanstalk-go/internal/structure"
+	"github.com/sjatsh/beanstalk-go/model"
 )
 
 func TestPutAndReserveCmd(t *testing.T) {
@@ -86,10 +85,10 @@ func TestSockWant(t *testing.T) {
 	}
 	l.Close()
 
-	if _, err := net.SockWant(&structure.Socket{
+	if err := sockWant(&model.Socket{
 		F: f,
 		H: func(i interface{}, i2 byte) {
-			s := i.(*structure.Socket)
+			s := i.(*model.Socket)
 			l, err := net2.FileListener(s.F)
 			if err != nil {
 				t.Fatal(err)
@@ -128,8 +127,8 @@ func TestSockWant(t *testing.T) {
 	c.Close()
 
 	// 获取客户端socket
-	sock := &structure.Socket{}
-	rw, err := net.SockNext(&sock, 10*time.Second)
+	sock := &model.Socket{}
+	rw, err := sockNext(&sock, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}

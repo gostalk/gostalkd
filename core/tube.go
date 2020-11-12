@@ -17,8 +17,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/sjatsh/beanstalk-go/internal/constant"
-	"github.com/sjatsh/beanstalk-go/internal/structure"
+	"github.com/sjatsh/beanstalk-go/constant"
+	"github.com/sjatsh/beanstalk-go/model"
+	"github.com/sjatsh/beanstalk-go/structure"
 )
 
 var (
@@ -26,20 +27,24 @@ var (
 	defaultTube = TubeFindOrMake("default") // 默认tube
 )
 
-func NewTube(name string) *structure.Tube {
+// NewTube 创建一个新的tube
+func NewTube(name string) *model.Tube {
 	if len(name) > constant.MaxTubeNameLen {
 		fmt.Println("truncating tube name")
 	}
-	t := &structure.Tube{
+	t := &model.Tube{
 		Name:  name,
 		Ready: structure.NewHeap(),
 		Delay: structure.NewHeap(),
 	}
+	// 设置排序规则方法
 	t.Ready.SetLessFn(JobPriLess)
 	t.Delay.SetLessFn(JobDelayLess)
+	// 设置pos方法
 	t.Ready.SetPosFn(JobSetPos)
 	t.Delay.SetPosFn(JobSetPos)
 
+	// 创建休眠队列
 	t.Buried = NewJob()
 	t.Buried.Prev = t.Buried
 	t.Buried.Next = t.Buried
@@ -52,20 +57,20 @@ func GetTubes() *structure.Ms {
 	return tubes
 }
 
-func GetDefaultTube() *structure.Tube {
+func GetDefaultTube() *model.Tube {
 	return defaultTube
 }
 
-func MakeAndInsertTube(name string) *structure.Tube {
+func MakeAndInsertTube(name string) *model.Tube {
 	t := NewTube(name)
 	tubes.Append(t)
 	return t
 }
 
-func SoonestDelayedJob() *structure.Job {
-	var j *structure.Job
+func SoonestDelayedJob() *model.Job {
+	var j *model.Job
 	tubes.Iterator(func(item interface{}) (bool, error) {
-		t := item.(*structure.Tube)
+		t := item.(*model.Tube)
 		if t.Delay.Len() == 0 {
 			return false, nil
 		}
@@ -73,7 +78,7 @@ func SoonestDelayedJob() *structure.Job {
 		if nji == nil {
 			return false, nil
 		}
-		nj := nji.Value.(*structure.Job)
+		nj := nji.Value.(*model.Job)
 		if j == nil || nj.R.DeadlineAt < j.R.DeadlineAt {
 			j = nj
 		}
@@ -82,10 +87,10 @@ func SoonestDelayedJob() *structure.Job {
 	return j
 }
 
-func NextAwaitedJob(now int64) *structure.Job {
-	var j *structure.Job
+func NextAwaitedJob(now int64) *model.Job {
+	var j *model.Job
 	tubes.Iterator(func(item interface{}) (bool, error) {
-		t := item.(*structure.Tube)
+		t := item.(*model.Tube)
 		if t.Pause > 0 {
 			if t.UnpauseAt > now {
 				return false, nil
@@ -98,7 +103,7 @@ func NextAwaitedJob(now int64) *structure.Job {
 				return false, nil
 			}
 			if j == nil || JobPriLess(candidate, &structure.Item{Value: j}) {
-				j = candidate.Value.(*structure.Job)
+				j = candidate.Value.(*model.Job)
 			}
 		}
 		return false, nil
@@ -106,11 +111,11 @@ func NextAwaitedJob(now int64) *structure.Job {
 	return j
 }
 
-func TubeFind(name string) *structure.Tube {
-	var t *structure.Tube
+func TubeFind(name string) *model.Tube {
+	var t *model.Tube
 	tubes.Iterator(func(item interface{}) (bool, error) {
-		if item.(*structure.Tube).Name == name {
-			t = item.(*structure.Tube)
+		if item.(*model.Tube).Name == name {
+			t = item.(*model.Tube)
 			return true, nil
 		}
 		return false, nil
@@ -118,11 +123,11 @@ func TubeFind(name string) *structure.Tube {
 	return t
 }
 
-func TubeFindOrMake(name string) *structure.Tube {
-	var t *structure.Tube
+func TubeFindOrMake(name string) *model.Tube {
+	var t *model.Tube
 	tubes.Iterator(func(item interface{}) (bool, error) {
-		if item.(*structure.Tube).Name == name {
-			t = item.(*structure.Tube)
+		if item.(*model.Tube).Name == name {
+			t = item.(*model.Tube)
 			return true, nil
 		}
 		return false, nil

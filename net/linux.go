@@ -19,6 +19,8 @@ import (
 	"syscall"
 	"time"
 	"unsafe"
+
+	"github.com/sjatsh/beanstalk-go/model"
 )
 
 var epfd int
@@ -31,14 +33,13 @@ func init() {
 	}
 }
 
-func SockWant(s *Socket, rw byte) error {
+func sockWant(s *model.Socket, rw byte) error {
 	var op int
-
-	if s.Added <= 0 && rw <= 0 {
+	if !s.Added && rw <= 0 {
 		return nil
 	}
-	if s.Added <= 0 && rw > 0 {
-		s.Added = 1
+	if !s.Added && rw > 0 {
+		s.Added = true
 		op = syscall.EPOLL_CTL_ADD
 	} else if rw <= 0 {
 		op = syscall.EPOLL_CTL_DEL
@@ -55,26 +56,24 @@ func SockWant(s *Socket, rw byte) error {
 	}
 	ev.Events |= syscall.EPOLLRDHUP | syscall.EPOLLPRI
 	ev.Pad = *(*int32)(unsafe.Pointer(s))
-
-	if err := syscall.EpollCtl(epfd, op, int(s.Fd), &ev); err != nil {
-		return err
-	}
-	return nil
+	return syscall.EpollCtl(epfd, op, int(s.F.Fd()), &ev)
 }
 
-func SockNext(s **Socket, timeout time.Duration) (byte, error) {
+func sockNext(s **model.Socket, timeout time.Duration) (byte, error) {
 	ev := syscall.EpollEvent{}
 	r, err := syscall.EpollWait(epfd, []syscall.EpollEvent{ev}, (int)(timeout.Seconds()))
 	if r == -1 || err != nil {
-		return -1, err
+		return byte(r), err
 	}
 	if r > 0 {
-		*s = (*Socket)(unsafe.Pointer(&ev.Pad))
+		*s = (*model.Socket)(unsafe.Pointer(&ev.Pad))
 		if ev.Events&(syscall.EPOLLHUP|syscall.EPOLLRDHUP) > 0 {
 			return 'h', nil
-		} else if ev.Events&syscall.EPOLLIN > 0 {
+		}
+		if ev.Events&syscall.EPOLLIN > 0 {
 			return 'r', nil
-		} else if ev.Events&syscall.EPOLLOUT > 0 {
+		}
+		if ev.Events&syscall.EPOLLOUT > 0 {
 			return 'w', nil
 		}
 	}

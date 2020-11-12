@@ -20,7 +20,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/sjatsh/beanstalk-go/internal/structure"
+	"github.com/sjatsh/beanstalk-go/model"
 )
 
 const (
@@ -37,7 +37,7 @@ func init() {
 	}
 }
 
-func SockWant(s *structure.Socket, rw byte) (int, error) {
+func sockWant(s *model.Socket, rw byte) error {
 	evs := make([]syscall.Kevent_t, 0)
 	ts := syscall.Timespec{}
 
@@ -71,14 +71,13 @@ func SockWant(s *structure.Socket, rw byte) (int, error) {
 
 		evs = append(evs, ev)
 	}
-	n, err := syscall.Kevent(kq, evs, nil, &ts)
-	if err != nil {
-		return n, err
+	if _, err := syscall.Kevent(kq, evs, nil, &ts); err != nil {
+		return err
 	}
-	return n, nil
+	return nil
 }
 
-func SockNext(s **structure.Socket, timeout time.Duration) (byte, error) {
+func sockNext(s **model.Socket, timeout time.Duration) (byte, error) {
 	ts := syscall.Timespec{}
 	evs := make([]syscall.Kevent_t, 1)
 
@@ -92,7 +91,7 @@ func SockNext(s **structure.Socket, timeout time.Duration) (byte, error) {
 
 	ev := evs[0]
 	if r > 0 {
-		*s = (*structure.Socket)(unsafe.Pointer(ev.Udata))
+		*s = (*model.Socket)(unsafe.Pointer(ev.Udata))
 		if ev.Flags&syscall.EV_EOF != 0 {
 			return 'h', nil
 		}
