@@ -185,7 +185,11 @@ func hConn(c *structure.Coon, which byte) {
 	connProcessIO(c)
 
 	// 读取命令并且处理
-	for ; commandDataReady(c) && c.CmdLen == scanLineEnd(c.Cmd, c.CmdRead); {
+	for ; commandDataReady(c); {
+		c.CmdLen = scanLineEnd(c.Cmd, c.CmdRead)
+		if c.CmdLen <= 0 {
+			break
+		}
 		dispatchCmd(c)
 		fillExtraData(c)
 	}
@@ -275,7 +279,7 @@ func connProcessIO(c *structure.Coon) {
 		if err != nil && err != io.EOF {
 			return
 		}
-		if err == io.EOF {
+		if r == 0 {
 			c.State = StateClose
 			return
 		}
@@ -345,7 +349,7 @@ func connProcessIO(c *structure.Coon) {
 		if err != nil && err != io.EOF {
 			return
 		}
-		if err == io.EOF {
+		if r == 0 {
 			c.State = StateClose
 			return
 		}
@@ -357,13 +361,13 @@ func connProcessIO(c *structure.Coon) {
 	case StateSendJob:
 		j := c.OutJob
 		sendData := bytes.Buffer{}
-		sendData.Write(c.Reply[c.ReplySent : c.ReplyLen-c.ReplySent+1])
-		sendData.Write(j.Body[c.OutJobSent : j.R.BodySize-c.OutJobSent+1])
+		sendData.Write(c.Reply[c.ReplySent : c.ReplyLen-c.ReplySent])
+		sendData.Write(j.Body[c.OutJobSent : j.R.BodySize-c.OutJobSent])
 		r, err := c.Sock.F.Write(sendData.Bytes())
 		if err != nil && err != io.EOF {
 			return
 		}
-		if err == io.EOF {
+		if r == 0 {
 			c.State = StateClose
 			return
 		}
@@ -373,7 +377,7 @@ func connProcessIO(c *structure.Coon) {
 			c.ReplySent = c.ReplyLen
 		}
 		if c.OutJobSent == j.R.BodySize {
-			wantCommand(c)
+			connWantCommand(c)
 			return
 		}
 	case StateWait:

@@ -79,7 +79,7 @@ func MakeConn(f *os.File, startState int, use, watch *structure.Tube) *structure
 	return c
 }
 
-func ConnDeadLineSoon(c *structure.Coon) bool {
+func connDeadLineSoon(c *structure.Coon) bool {
 	t := time.Now().UnixNano()
 	j := ConnSoonestJob(c)
 	if j == nil {
@@ -89,6 +89,18 @@ func ConnDeadLineSoon(c *structure.Coon) bool {
 		return false
 	}
 	return true
+}
+
+func connReady(c *structure.Coon) bool {
+	ready := false
+	c.Watch.Iterator(func(item interface{}) (bool, error) {
+		if item.(*structure.Tube).Ready.Len() > 0 {
+			ready = true
+			return true, nil
+		}
+		return false, nil
+	})
+	return ready
 }
 
 func RemoveThisReservedJob(c *structure.Coon, j *structure.Job) *structure.Job {
@@ -104,7 +116,7 @@ func RemoveThisReservedJob(c *structure.Coon, j *structure.Job) *structure.Job {
 
 func ConnTimeout(c *structure.Coon) {
 	shoudTimeOut := false
-	if ConnWaiting(c) && ConnDeadLineSoon(c) {
+	if ConnWaiting(c) && connDeadLineSoon(c) {
 		shoudTimeOut = true
 	}
 

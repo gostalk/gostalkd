@@ -17,8 +17,11 @@ package net_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	net2 "net"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,7 +29,7 @@ import (
 	"github.com/sjatsh/beanstalk-go/internal/structure"
 )
 
-func TestConn(t *testing.T) {
+func TestPutAndReserveCmd(t *testing.T) {
 	// 模拟客户端写入
 	c, err := net2.Dial("tcp", "127.0.0.1:11400")
 	if err != nil {
@@ -34,22 +37,36 @@ func TestConn(t *testing.T) {
 	}
 	defer c.Close()
 
+	// put 一条3秒延时的job
 	if _, err := c.Write([]byte("put 1 3 10 5\r\nhello\r\n")); err != nil {
 		t.Fatal(err)
 	}
+	// 并且同时去reserve
 	if _, err := c.Write([]byte("reserve\r\n")); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(5 * time.Second)
 
-	reply := make([]byte, 1024)
-	r, err := c.Read(reply)
-	if err != nil {
-		t.Fatal(err)
-	}
-	reply = reply[:r]
-	t.Log(string(reply))
-
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		reply := make([]byte, 1024)
+		for {
+			r, err := c.Read(reply)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if r == 0 {
+				continue
+			}
+			reply = reply[:r]
+			fmt.Print(string(reply))
+			if strings.Contains(string(reply), "hello") {
+				break
+			}
+		}
+	}()
+	wg.Wait()
 }
 
 func TestSockWant(t *testing.T) {

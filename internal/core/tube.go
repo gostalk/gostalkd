@@ -40,8 +40,7 @@ func NewTube(name string) *structure.Tube {
 	t.Ready.SetPosFn(JobSetPos)
 	t.Delay.SetPosFn(JobSetPos)
 
-	j := NewJob()
-	t.Buried = j
+	t.Buried = NewJob()
 	t.Buried.Prev = t.Buried
 	t.Buried.Next = t.Buried
 

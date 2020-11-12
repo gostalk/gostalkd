@@ -262,7 +262,6 @@ func EnqueueJob(s *structure.Server, j *structure.Job, delay int64, updateStore 
 	if updateStore {
 		// TODO 写入binlog
 	}
-
 	ProcessQueue()
 	return 1
 }
@@ -355,7 +354,18 @@ func whichCmd(cmd string) int {
 	return OpUnknown
 }
 
-func readInt(buf []byte) (int64, int, error) {
+func strTol(str []byte) (int64, error) {
+	data := make([]byte, 0)
+	for _, b := range str {
+		if b < '0' || b > '9' {
+			break
+		}
+		data = append(data, b)
+	}
+	return strconv.ParseInt(string(data), 10, 64)
+}
+
+func readInt(buf []byte, idx *int) (int64, error) {
 	begin := 0
 	for i := 0; i < len(buf); i++ {
 		if buf[i] != ' ' {
@@ -364,9 +374,8 @@ func readInt(buf []byte) (int64, int, error) {
 		begin++
 	}
 	if buf[begin] < '0' || buf[begin] > '9' {
-		return 0, 0, errors.New("fmt error")
+		return 0, errors.New("fmt error")
 	}
-
 	var data []byte
 	end := begin
 	for ; end < len(buf); end++ {
@@ -375,12 +384,12 @@ func readInt(buf []byte) (int64, int, error) {
 		}
 		data = append(data, buf[end])
 	}
-
 	i, err := strconv.ParseInt(string(data), 10, 64)
 	if err != nil {
-		return 0, 0, err
+		return 0, err
 	}
-	return i, end, nil
+	*idx += end
+	return i, nil
 }
 
 func skip(c *structure.Coon, n int64, msg string) {
@@ -399,16 +408,16 @@ func skip(c *structure.Coon, n int64, msg string) {
 	c.State = StateBitbucket
 }
 
-func readDuration(buf []byte) (int64, int, error) {
-	t, next, err := readInt(buf)
+func readDuration(buf []byte, idx *int) (int64, error) {
+	t, err := readInt(buf, idx)
 	if err != nil {
-		return 0, 0, err
+		return 0, err
 	}
 	duration := t * 1000000000
-	return duration, next, nil
+	return duration, nil
 }
 
-func connsetproducer(c *structure.Coon) {
+func connSetProducer(c *structure.Coon) {
 	if c.Type&ConnTypeProducer > 0 {
 		return
 	}
@@ -416,11 +425,100 @@ func connsetproducer(c *structure.Coon) {
 	CurProducerCt++
 }
 
+func connSetWorker(c *structure.Coon) {
+	if c.Type&ConnTypeWorker > 0 {
+		return
+	}
+	c.Type |= ConnTypeWorker
+	CurWorkerCt++
+}
+
+func connSetSoonestJob(c *structure.Coon, j *structure.Job) {
+	if c.SoonestJob == nil || j.R.DeadlineAt < c.SoonestJob.R.DeadlineAt {
+		c.SoonestJob = j
+	}
+}
+
+func connReserveJob(c *structure.Coon, j *structure.Job) {
+	j.Tube.Stat.ReservedCt++
+	j.R.ReserveCt++
+
+	j.R.DeadlineAt = time.Now().UnixNano() + j.R.TTR
+	j.R.State = core.Reserved
+	core.JobListInsert(c.ReservedJobs, j)
+	j.Reserver = c
+	c.PendingTimeout = -1
+	connSetSoonestJob(c, j)
+}
+
+func enqueueWaitingConn(c *structure.Coon) {
+	c.Type |= ConnTypeWaiting
+	utils.GlobalState.WaitingCt++
+	c.Watch.Iterator(func(item interface{}) (bool, error) {
+		t := item.(*structure.Tube)
+		t.Stat.WaitingCt++
+		t.WaitingConns.Append(c)
+		return false, nil
+	})
+}
+
+func waitForJob(c *structure.Coon, timeout int64) {
+	c.State = StateWait
+	enqueueWaitingConn(c)
+	/* Set the pending timeout to the requested timeout amount */
+	c.PendingTimeout = int(timeout)
+	// only care if they hang up
+	EpollqAdd(c, 'h')
+}
+
+// remove_buried_job returns non-NULL value if job j was in the buried state.
+// It excludes the job from the buried list and updates counters.
+func removeBuriedJob(j *structure.Job) *structure.Job {
+	if j == nil || j.R.State != core.Buried {
+		return nil
+	}
+	j = core.JobListRemove(j)
+	if j != nil {
+		utils.GlobalState.BuriedCt--
+		j.Tube.Stat.BuriedCt--
+	}
+	return j
+}
+
+// remove_delayed_job returns non-NULL value if job j was in the delayed state.
+// It removes the job from the tube delayed heap.
+func removeDelayedJob(j *structure.Job) *structure.Job {
+	if j == nil || j.R.State != core.Delayed {
+		return nil
+	}
+	j.Tube.Delay.Remove(j.HeapIndex)
+	return j
+}
+
+// remove_ready_job returns non-NULL value if job j was in the ready state.
+// It removes the job from the tube ready heap and updates counters.
+func removeReadyJob(j *structure.Job) *structure.Job {
+	if j == nil || j.R.State != core.Ready {
+		return nil
+	}
+	j.Tube.Ready.Remove(j.HeapIndex)
+	utils.ReadyCt--
+	if j.R.Pri < constant.UrgentThreshold {
+		utils.GlobalState.UrgentCt--
+		j.Tube.Stat.UrgentCt--
+	}
+	return j
+}
+
 func strLen(s []byte) int {
 	return bytes.Index(s, []byte("\r"))
 }
 
 func dispatchCmd(c *structure.Coon) {
+
+	var err error
+	var timeout int64 = -1
+
 	if strLen(c.Cmd) != c.CmdLen-2 {
 		ReplyMsg(c, MsgBadFormat)
 		return
@@ -430,33 +528,26 @@ func dispatchCmd(c *structure.Coon) {
 	switch t {
 	case OpPut:
 		idx := 4
-		pri, next, err := readInt(c.Cmd[idx:])
+		pri, err := readInt(c.Cmd[idx:], &idx)
 		if err != nil {
 			ReplyMsg(c, MsgBadFormat)
 			return
 		}
-		idx += next
-
-		delay, next, err := readDuration(c.Cmd[idx:])
+		delay, err := readDuration(c.Cmd[idx:], &idx)
 		if err != nil {
 			ReplyMsg(c, MsgBadFormat)
 			return
 		}
-		idx += next
-
-		ttr, next, err := readDuration(c.Cmd[idx:])
+		ttr, err := readDuration(c.Cmd[idx:], &idx)
 		if err != nil {
 			ReplyMsg(c, MsgBadFormat)
 			return
 		}
-		idx += next
-
-		bodySize, next, err := readInt(c.Cmd[idx:])
+		bodySize, err := readInt(c.Cmd[idx:], &idx)
 		if err != nil {
 			ReplyMsg(c, MsgBadFormat)
 			return
 		}
-		idx += next
 
 		utils.OpCt[t]++
 
@@ -470,7 +561,9 @@ func dispatchCmd(c *structure.Coon) {
 			return
 		}
 
-		connsetproducer(c)
+		// 设置连接类型成producer
+		connSetProducer(c)
+
 		if ttr < 1000000000 {
 			ttr = 1000000000
 		}
@@ -480,9 +573,63 @@ func dispatchCmd(c *structure.Coon) {
 
 		// 填充body数据
 		fillExtraData(c)
-
 		maybeEnqueueInComingJob(c)
+
+	case OpReserveTimeout:
+		timeout, err = strTol(c.Cmd[len(CmdReserveTimeout):])
+		if err != nil {
+			ReplyMsg(c, MsgBadFormat)
+			return
+		}
+		fallthrough
 	case OpReserve:
-		fmt.Println("收到reserve")
+		if t == OpReserve && c.CmdLen != len(CmdReserve)+2 {
+			ReplyMsg(c, MsgBadFormat)
+			return
+		}
+		utils.OpCt[t]++
+		connSetWorker(c)
+
+		if connDeadLineSoon(c) && !connReady(c) {
+			ReplyMsg(c, MsgDeadlineSoon)
+			return
+		}
+		waitForJob(c, timeout)
+		ProcessQueue()
+
+	case OpReserveJob:
+		idx := 0
+		id, err := readInt(c.Cmd[len(CmdReserveJob):], &idx)
+		if err != nil {
+			ReplyMsg(c, MsgBadFormat)
+			return
+		}
+		utils.OpCt[t]++
+
+		j := core.JobFind(uint64(id))
+		if j == nil {
+			ReplyMsg(c, MsgNotFound)
+			return
+		}
+
+		switch j.R.State {
+		case core.Ready:
+			j = removeReadyJob(j)
+		case core.Buried:
+			j = removeBuriedJob(j)
+		case core.Delayed:
+			j = removeDelayedJob(j)
+		default:
+			ReplyErr(c, MsgInternalError)
+			return
+		}
+
+		connSetWorker(c)
+		utils.GlobalState.ReservedCt++
+
+		connReserveJob(c, j)
+		ReplyJob(c, j, MsgReserved)
+	default:
+		ReplyMsg(c, MsgUnknownCommand)
 	}
 }
