@@ -20,24 +20,9 @@ import (
 	"io"
 	net2 "net"
 	"testing"
-	"time"
 
 	"github.com/sjatsh/beanstalk-go/model"
 )
-
-func TestCmdPut(t *testing.T) {
-	if _, err := client.Write([]byte("put 1 3 10 5\r\nhello\r\n")); err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(time.Second)
-}
-
-func TestCmdReserve(t *testing.T) {
-	if _, err := client.Write([]byte("reserve\r\n")); err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(time.Second * 3)
-}
 
 func TestSockWant(t *testing.T) {
 	addr := "127.0.0.1:9999"
@@ -49,27 +34,25 @@ func TestSockWant(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer l.Close()
+
 	f, err := l.File()
 	if err != nil {
 		t.Fatal(err)
 	}
-	l.Close()
 
 	if err := sockWant(&model.Socket{
-		F: f,
+		F:  f,
+		Ln: l,
 		H: func(i interface{}, i2 byte) {
 			if i == nil {
 				return
 			}
-			s := i.(*model.Socket)
-			l, err := net2.FileListener(s.F)
+			c, err := i.(*model.Socket).Ln.Accept()
 			if err != nil {
 				t.Fatal(err)
 			}
-			c, err := l.Accept()
-			if err != nil {
-				t.Fatal(err)
-			}
+			t.Log("get client request")
 
 			b := make([]byte, 1024)
 			res := bytes.Buffer{}
@@ -81,9 +64,6 @@ func TestSockWant(t *testing.T) {
 				res.Write(b[:size])
 			}
 			t.Log(string(b))
-			t.Log("get client request")
-			t.Logf("%#v", i)
-			t.Logf("%s", string(i2))
 		},
 	}, 'r'); err != nil {
 		t.Fatal(err)
@@ -94,13 +74,14 @@ func TestSockWant(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.Write([]byte("hello word")); err != nil {
+	if _, err := c.Write([]byte("hello")); err != nil {
 		t.Fatal(err)
 	}
+	c.Close()
 
 	// 获取客户端socket
 	var sock *model.Socket
-	rw, err := sockNext(&sock, 10*time.Second)
+	rw, err := sockNext(&sock, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

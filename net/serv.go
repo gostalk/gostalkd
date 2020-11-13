@@ -87,7 +87,7 @@ func Start(s *model.Server) error {
 			logrus.Error(err)
 			continue
 		}
-		if rw > 0 {
+		if rw > 0 && sock != nil {
 			sock.H(sock.X, rw)
 		}
 	}
