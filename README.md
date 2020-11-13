@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/sjatsh/beanstalk-go.svg?branch=master)](https://travis-ci.org/sjatsh/beanstalk-go)
+[![Build Status](https://travis-ci.org/sjatsh/beanstalk-go.svg?branch=main)](https://travis-ci.org/sjatsh/beanstalk-go.svg?branch=main)
 
 # beanstalk-go
 
