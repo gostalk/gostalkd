@@ -41,4 +41,7 @@ Usage of ./beanstalkd:
   	set the maximum job size in bytes (default is 65535);max allowed is 1073741824 bytes (default 65535)
 ```
 
-Required golang
+# Third Party
+
+ - [Beanstalkd queue server console](https://github.com/xuri/aurora)
+ - [High available beanstalkd go client](https://github.com/tal-tech/go-queue)
