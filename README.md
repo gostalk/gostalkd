@@ -7,6 +7,10 @@ Simple and fast general purpose work queue.
 Fully [Beanstalk](https://github.com/beanstalkd/beanstalkd) compatible task queue implemented by golang for learning
 purpose
 
+# Milepost
+
+ - *2020-11-14* : all dispatch cmd complete but memory only, binlog period not supported. 
+
 # Quick Start
 
 ```bash
