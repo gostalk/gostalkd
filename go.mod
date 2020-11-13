@@ -2,4 +2,7 @@ module github.com/sjatsh/beanstalk-go
 
 go 1.15
 
-require golang.org/x/sys v0.0.0-20201112073958-5cba982894dd
+require (
+	github.com/sirupsen/logrus v1.7.0
+	golang.org/x/sys v0.0.0-20201112073958-5cba982894dd
+)

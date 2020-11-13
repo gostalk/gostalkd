@@ -22,13 +22,17 @@ import (
 	"github.com/sjatsh/beanstalk-go/constant"
 )
 
-var DrainMode int
+var (
+	DrainMode   int
+	InstanceHex string
+	UtsName     = &unix.Utsname{}
+)
 
 // RandInstanceHex 生成随机实例编号
-func RandInstanceHex() (string, error) {
+func init() {
 	randData := make([]byte, constant.InstanceIDBytes)
 	if _, err := rand.Read(randData); err != nil {
-		return "", err
+		panic(err)
 	}
 	instanceHex := make([]byte, constant.InstanceIDBytes*2+1)
 	for i := 0; i < constant.InstanceIDBytes; i++ {
@@ -36,14 +40,9 @@ func RandInstanceHex() (string, error) {
 		instanceHex[i*2] = d[0]
 		instanceHex[i*2+1] = d[1]
 	}
-	return fmt.Sprintf("%s", instanceHex), nil
-}
+	InstanceHex = fmt.Sprintf("%s", instanceHex)
 
-// GetUname 获取系统信息
-func GetUname() (*unix.Utsname, error) {
-	utsName := &unix.Utsname{}
-	if err := unix.Uname(utsName); err != nil {
-		return nil, err
+	if err := unix.Uname(UtsName); err != nil {
+		panic(err)
 	}
-	return utsName, nil
 }

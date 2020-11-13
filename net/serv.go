@@ -22,6 +22,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/sjatsh/beanstalk-go/constant"
 	"github.com/sjatsh/beanstalk-go/core"
 	"github.com/sjatsh/beanstalk-go/model"
@@ -78,7 +80,7 @@ func Start(s *model.Server) error {
 		if err != nil {
 			os.Exit(1)
 		}
-		if rw != 0 {
+		if rw != 0 && sock != nil {
 			sock.H(sock.X, rw)
 		}
 	}
@@ -203,6 +205,7 @@ func connProcessIO(c *model.Coon) {
 		data := make([]byte, constant.LineBufSize-c.CmdRead)
 		r, err := c.Sock.F.Read(data)
 		if err != nil && err != io.EOF {
+			logrus.Error(err)
 			return
 		}
 		if r == 0 {
@@ -353,7 +356,7 @@ func enqueueInComingJob(c *model.Coon) {
 	c.InJobRead = 0
 
 	// body必须以\r\n结尾
-	if bytes.Index(j.Body, []byte("\r\n")) == len(j.Body)-1 {
+	if bytes.Index(j.Body, []byte("\r\n")) == -1 {
 		core.JobFree(j)
 		replyMsg(c, constant.MsgExpectedCrlf)
 		return

@@ -18,24 +18,19 @@ const (
 	DefaultPort                  = 11400
 	DefaultFsyncMs               = 50
 	DefaultListenAddr            = "0.0.0.0"
-	DefaultMaxJobSize            = 65535
+	DefaultMaxJobSize            = 1<<16 - 1
 	DefaultEachWriteAheadLogSize = 10485760
 	DefaultPeriod                = int64(0x34630B8A000)
 )
 
 const (
-	InstanceIDBytes = 8
-	// JobDataSizeLimitMax
-	JobDataSizeLimitMax     = 1073741824
-	JobDataSizeLimitDefault = 1<<16 - 1
-
-	// MaxTubeNameLen
-	MaxTubeNameLen = 201 // The name of a tube cannot be longer than MaxTubeNameLen-1
-	LineBufSize    = 11 + MaxTubeNameLen + 12
-	AllJobsCap     = 12289
-
-	UrgentThreshold = 1024
-	BucketBufSize   = 1024
+	InstanceIDBytes     = 8
+	JobDataSizeLimitMax = 1073741824
+	MaxTubeNameLen      = 201 // The name of a tube cannot be longer than MaxTubeNameLen-1
+	LineBufSize         = 11 + MaxTubeNameLen + 12
+	AllJobsCap          = 12289
+	UrgentThreshold     = 1024
+	BucketBufSize       = 1024
 )
 
 // job相关状态
@@ -93,29 +88,29 @@ const (
 	OpReserveJob
 	TpALOps
 
-	CmdPut              = "put "
-	CmdPeekJob          = "peek "
+	CmdPut              = "put"
+	CmdPeekJob          = "peek"
 	CmdPeekReady        = "peek-ready"
 	CmdPeekDelayed      = "peek-delayed"
 	CmdPeekBuried       = "peek-buried"
 	CmdReserve          = "reserve"
-	CmdReserveTimeout   = "reserve-with-timeout "
-	CmdReserveJob       = "reserve-job "
-	CmdDelete           = "delete "
-	CmdRelease          = "release "
-	CmdBury             = "bury "
-	CmdKick             = "kick "
-	CmdKickJob          = "kick-job "
-	CmdTouch            = "touch "
+	CmdReserveTimeout   = "reserve-with-timeout"
+	CmdReserveJob       = "reserve-job"
+	CmdDelete           = "delete"
+	CmdRelease          = "release"
+	CmdBury             = "bury"
+	CmdKick             = "kick"
+	CmdKickJob          = "kick-job"
+	CmdTouch            = "touch"
 	CmdStats            = "stats"
-	CmdStatsJob         = "stats-job "
-	CmdUse              = "use "
-	CmdWatch            = "watch "
-	CmdIgnore           = "ignore "
+	CmdStatsJob         = "stats-job"
+	CmdUse              = "use"
+	CmdWatch            = "watch"
+	CmdIgnore           = "ignore"
 	CmdListTubes        = "list-tubes"
 	CmdListTubeUsed     = "list-tube-used"
 	CmdListTubesWatched = "list-tubes-watched"
-	CmdStatsTube        = "stats-tube "
+	CmdStatsTube        = "stats-tube"
 	CmdQuit             = "quit"
 	CmdPauseTube        = "pause-tube"
 )
@@ -170,4 +165,94 @@ var (
 		CmdQuit:             OpQuit,
 		CmdPauseTube:        OpPauseTube,
 	}
+)
+
+const (
+	StatsFmt = "---\n" +
+		"current-jobs-urgent: %d\n" +
+		"current-jobs-ready: %d\n" +
+		"current-jobs-reserved: %d\n" +
+		"current-jobs-delayed: %d\n" +
+		"current-jobs-buried: %d\n" +
+		"cmd-put: %d\n" +
+		"cmd-peek: %d\n" +
+		"cmd-peek-ready: %d\n" +
+		"cmd-peek-delayed: %d\n" +
+		"cmd-peek-buried: %d\n" +
+		"cmd-reserve: %d\n" +
+		"cmd-reserve-with-timeout: %d\n" +
+		"cmd-delete: %d\n" +
+		"cmd-release: %d\n" +
+		"cmd-use: %d\n" +
+		"cmd-watch: %d\n" +
+		"cmd-ignore: %d\n" +
+		"cmd-bury: %d\n" +
+		"cmd-kick: %d\n" +
+		"cmd-touch: %d\n" +
+		"cmd-stats: %d\n" +
+		"cmd-stats-job: %d\n" +
+		"cmd-stats-tube: %d\n" +
+		"cmd-list-tubes: %d\n" +
+		"cmd-list-tube-used: %d\n" +
+		"cmd-list-tubes-watched: %d\n" +
+		"cmd-pause-tube: %d\n" +
+		"job-timeouts: %d\n" +
+		"total-jobs: %d\n" +
+		"max-job-size: %d\n" +
+		"current-tubes: %d\n" +
+		"current-connections: %d\n" +
+		"current-producers: %d\n" +
+		"current-workers: %d\n" +
+		"current-waiting: %d\n" +
+		"total-connections: %d\n" +
+		"pid: %d\n" +
+		"version: %s\n" +
+		"rusage-utime: %d.%06d\n" +
+		"rusage-stime: %d.%06d\n" +
+		"uptime: %d\n" +
+		"binlog-oldest-index: %d\n" +
+		"binlog-current-index: %d\n" +
+		"binlog-records-migrated: %d\n" +
+		"binlog-records-written: %d\n" +
+		"binlog-max-size: %d\n" +
+		"draining: %s\n" +
+		"id: %s\n" +
+		"hostname: %s\n" +
+		"os: %s\n" +
+		"platform: %s\n" +
+		"\r\n"
+
+	StatsFmtTube = "---\n" +
+		"name: %s\n" +
+		"current-jobs-urgent: %d\n" +
+		"current-jobs-ready: %d\n" +
+		"current-jobs-reserved: %d\n" +
+		"current-jobs-delayed: %d\n" +
+		"current-jobs-buried: %d\n" +
+		"total-jobs: %d\n" +
+		"current-using: %d\n" +
+		"current-watching: %d\n" +
+		"current-waiting: %d\n" +
+		"cmd-delete: %d\n" +
+		"cmd-pause-tube: %d\n" +
+		"pause: %d\n" +
+		"pause-time-left: %d\n" +
+		"\r\n"
+
+	StatsFmtJob = "---\n" +
+		"id: %d\n" +
+		"tube: %s\n" +
+		"state: %s\n" +
+		"pri: %d\n" +
+		"age: %d\n" +
+		"delay: %d\n" +
+		"ttr: %d\n" +
+		"time-left: %d\n" +
+		"file: %d\n" +
+		"reserves: %d\n" +
+		"timeouts: %d\n" +
+		"releases: %d\n" +
+		"buries: %d\n" +
+		"kicks: %d\n" +
+		"\r\n"
 )

@@ -14,39 +14,35 @@
 package utils
 
 import (
-	"time"
-
 	"github.com/sjatsh/beanstalk-go/constant"
 )
 
-var (
-	// StartedAt serve started time
-	StartedAt int64
+const nameCharts = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+	"abcdefghijklmnopqrstuvwxyz" +
+	"0123456789-+/;.$_()"
 
-	// OpCt Operation command count statistics
-	OpCt        = make([]int, constant.TpALOps)
-	AllJobsUsed int64
-	ReadyCt     int64
-	TimeoutCt   uint64
-
-	CurConnCt     uint64
-	CurWorkerCt   uint64
-	CurProducerCt uint64
-	TotConnCt     uint64
-
-	GlobalState = State{}
-)
-
-type State struct {
-	UrgentCt      uint64
-	WaitingCt     uint64
-	BuriedCt      uint64
-	ReservedCt    uint64
-	PauseCt       uint64
-	TotalDeleteCt uint64
-	TotalJobsCt   uint64
-}
+var chartsAry = [256]int32{}
 
 func init() {
-	StartedAt = time.Now().UnixNano()
+	for _, c := range nameCharts {
+		chartsAry[c] = c
+	}
+}
+
+// StrSpn
+func StrSpn(str1 []byte) int {
+	for idx, c := range str1 {
+		if chartsAry[c] == 0 {
+			return idx
+		}
+	}
+	return len(str1)
+}
+
+// isValidTube
+func IsValidTube(name []byte) bool {
+	l := StrLen(name)
+	return 0 < l && l <= constant.MaxTubeNameLen-1 &&
+		StrSpn(name) == l &&
+		name[0] != '-'
 }

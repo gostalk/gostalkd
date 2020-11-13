@@ -14,11 +14,14 @@
 package net
 
 import (
+	"bytes"
 	"fmt"
 	"math"
-	"strings"
-	"sync/atomic"
+	"os"
+	"syscall"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/sjatsh/beanstalk-go/constant"
 	"github.com/sjatsh/beanstalk-go/core"
@@ -120,11 +123,13 @@ func protTick(s *model.Server) time.Duration {
 }
 
 // whichCmd 验证命令是否有效
-func whichCmd(cmd string) int {
-	for k, v := range constant.Cmd2OpMap {
-		if strings.HasPrefix(cmd, k) {
-			return v
-		}
+func whichCmd(cmdBuf []byte) int {
+	cmdBuf = cmdBuf[:utils.StrLen(cmdBuf)]
+	cmdSlice := bytes.Split(cmdBuf, []byte(" "))
+	cmd := string(cmdSlice[0])
+
+	if op, ok := constant.Cmd2OpMap[cmd]; ok {
+		return op
 	}
 	return constant.OpUnknown
 }
@@ -139,7 +144,8 @@ func dispatchCmd(c *model.Coon) {
 		return
 	}
 
-	t := whichCmd(string(c.Cmd))
+	t := whichCmd(c.Cmd)
+
 	switch t {
 	case constant.OpPut:
 		displayOpPut(c)
@@ -167,18 +173,31 @@ func dispatchCmd(c *model.Coon) {
 	case constant.OpKick:
 		displayOpKick(c)
 	case constant.OpKickJob:
+		displayOpKickJob(c)
 	case constant.OpTouch:
+		displayOpTouch(c)
 	case constant.OpStats:
+		displayStats(c)
 	case constant.OpStatsJob:
+		displayStatsJob(c)
 	case constant.OpStatsTube:
+		displayStatsTube(c)
 	case constant.OpListTubes:
+		displayOpListTubes(c)
 	case constant.OpListTubeUsed:
+		displayOpListTubeUsed(c)
 	case constant.OpListTubesWatched:
+		displayOpListTubesWatched(c)
 	case constant.OpUse:
+		displayOpUse(c)
 	case constant.OpWatch:
+		displayOpWatch(c)
 	case constant.OpIgnore:
+		displayOpIgnore(c)
 	case constant.OpQuit:
+		displayOpQuit(c)
 	case constant.OpPauseTube:
+		displayOpPauseTube(c)
 	default:
 		replyMsg(c, constant.MsgUnknownCommand)
 	}
@@ -210,7 +229,7 @@ func displayOpPut(c *model.Coon) {
 
 	utils.OpCt[constant.OpPut]++
 
-	if bodySize > constant.JobDataSizeLimitDefault {
+	if bodySize > constant.JobDataSizeLimitMax {
 		skip(c, bodySize+2, constant.MsgJobTooBig)
 		return
 	}
@@ -305,8 +324,8 @@ func displayOpPeekBuried(c *model.Coon) {
 
 // displayOpPeekJob
 func displayOpPeekJob(c *model.Coon) {
-	idx := 0
-	id, err := utils.ReadInt(c.Cmd[len(constant.CmdPeekJob):], &idx)
+	idx := len(constant.CmdPeekJob)
+	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
 		replyMsg(c, constant.MsgBadFormat)
 		return
@@ -350,8 +369,8 @@ func displayOpReserve(c *model.Coon, timeout int64) {
 
 // displayOpReserveJob
 func displayOpReserveJob(c *model.Coon) {
-	idx := 0
-	id, err := utils.ReadInt(c.Cmd[len(constant.CmdReserveJob):], &idx)
+	idx := len(constant.CmdReserveJob)
+	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
 		replyMsg(c, constant.MsgBadFormat)
 		return
@@ -386,8 +405,8 @@ func displayOpReserveJob(c *model.Coon) {
 
 // displayOpDelete
 func displayOpDelete(c *model.Coon) {
-	idx := 0
-	id, err := utils.ReadInt(c.Cmd[len(constant.CmdDelete):], &idx)
+	idx := len(constant.CmdDelete)
+	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
 		replyMsg(c, constant.MsgBadFormat)
 		return
@@ -430,8 +449,8 @@ func displayOpDelete(c *model.Coon) {
 
 // displayOpRelease
 func displayOpRelease(c *model.Coon) {
-	idx := 0
-	id, err := utils.ReadInt(c.Cmd[len(constant.CmdRelease):], &idx)
+	idx := len(constant.CmdRelease)
+	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
 		replyMsg(c, constant.MsgBadFormat)
 		return
@@ -485,8 +504,8 @@ func displayOpRelease(c *model.Coon) {
 
 // displayOpBury
 func displayOpBury(c *model.Coon) {
-	idx := 0
-	id, err := utils.ReadInt(c.Cmd[len(constant.CmdRelease):], &idx)
+	idx := len(constant.CmdRelease)
+	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
 		replyMsg(c, constant.MsgBadFormat)
 		return
@@ -523,6 +542,284 @@ func displayOpKick(c *model.Coon) {
 
 	i := kickJobs(c.Srv, c.Use, uint(count))
 	replyLine(c, constant.StateSendWord, "KICKED %d\r\n", i)
+}
+
+// displayOpKickJob
+func displayOpKickJob(c *model.Coon) {
+	idx := len(constant.CmdRelease)
+	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
+	if err != nil {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+
+	utils.OpCt[constant.OpKickJob]++
+
+	j := core.JobFind(uint64(id))
+	if j == nil {
+		replyMsg(c, constant.MsgNotFound)
+		return
+	}
+
+	if !((j.R.State == constant.Buried && kickBuriedJob(c.Srv, j)) ||
+		(j.R.State == constant.Delayed && kickDelayedJob(c.Srv, j))) {
+		replyMsg(c, constant.MsgNotFound)
+		return
+	}
+	replyMsg(c, constant.MsgKicked)
+}
+
+// displayOpTouch
+func displayOpTouch(c *model.Coon) {
+	idx := len(constant.CmdRelease)
+	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
+	if err != nil {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	utils.OpCt[constant.OpTouch]++
+
+	if !touchJob(c, core.JobFind(uint64(id))) {
+		replyMsg(c, constant.MsgNotFound)
+		return
+	}
+	replyMsg(c, constant.MsgTouched)
+}
+
+// displayStats
+func displayStats(c *model.Coon) {
+	if c.CmdLen != len(constant.CmdStats)+2 {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	utils.OpCt[constant.OpStats]++
+	doStats(c, constant.OpStats)
+}
+
+// displayStatsJob
+func displayStatsJob(c *model.Coon) {
+	idx := len(constant.CmdStatsJob)
+	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
+	if err != nil {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	utils.OpCt[constant.OpStatsJob]++
+
+	j := core.JobFind(uint64(id))
+	if j == nil {
+		replyMsg(c, constant.MsgNotFound)
+		return
+	}
+
+	if j.Tube == nil {
+		replyErr(c, constant.MsgInternalError)
+		return
+	}
+	doStats(c, constant.OpStatsJob, j)
+}
+
+// displayStatsTube
+func displayStatsTube(c *model.Coon) {
+	idx := len(constant.CmdStatsTube)
+	name, err := utils.ReadTubeName(c.Cmd[idx:], &idx)
+	if err != nil {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	if !utils.IsValidTube(name) {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	utils.OpCt[constant.OpStatsTube]++
+
+	t := core.TubeFind(string(name))
+	if t == nil {
+		replyMsg(c, constant.MsgNotFound)
+		return
+	}
+	doStats(c, constant.OpStatsTube, t)
+}
+
+// displayOpListTubes
+func displayOpListTubes(c *model.Coon) {
+	if c.CmdLen != len(constant.CmdListTubes)+2 {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	utils.OpCt[constant.OpListTubes]++
+	doListTubes(c, core.GetTubes())
+}
+
+// displayOpListTubeUsed
+func displayOpListTubeUsed(c *model.Coon) {
+	if c.CmdLen != len(constant.CmdListTubeUsed)+2 {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	utils.OpCt[constant.OpListTubeUsed]++
+	replyLine(c, constant.StateSendWord, "USING %s\r\n", c.Use.Name)
+}
+
+// displayOpListTubeUsed
+func displayOpListTubesWatched(c *model.Coon) {
+	if c.CmdLen != len(constant.CmdListTubesWatched)+2 {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	utils.OpCt[constant.OpListTubesWatched]++
+	doListTubes(c, c.Watch)
+}
+
+// displayOpUse
+func displayOpUse(c *model.Coon) {
+	idx := len(constant.CmdUse)
+	name, err := utils.ReadTubeName(c.Cmd[idx:], &idx)
+	if err != nil {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	if !utils.IsValidTube(name) {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	utils.OpCt[constant.OpUse]++
+
+	t := core.TubeFindOrMake(string(name))
+	c.Use.UsingCt--
+	c.Use = t
+	c.Use.UsingCt++
+
+	replyLine(c, constant.StateSendWord, "USING %s\r\n", c.Use.Name)
+}
+
+// displayOpWatch
+func displayOpWatch(c *model.Coon) {
+	idx := len(constant.CmdWatch)
+	name, err := utils.ReadTubeName(c.Cmd[idx:], &idx)
+	if err != nil {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	if !utils.IsValidTube(name) {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	utils.OpCt[constant.OpWatch]++
+
+	t := core.TubeFindOrMake(string(name))
+	if !c.Watch.Contains(t) {
+		c.Watch.Append(t)
+	}
+	replyLine(c, constant.StateSendWord, "WATCHING %d\r\n", c.Watch.Len())
+}
+
+// displayOpIgnore
+func displayOpIgnore(c *model.Coon) {
+	idx := len(constant.CmdIgnore)
+	name, err := utils.ReadTubeName(c.Cmd[idx:], &idx)
+	if err != nil {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	if !utils.IsValidTube(name) {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	utils.OpCt[constant.OpIgnore]++
+
+	var t *model.Tube
+	c.Watch.Iterator(func(item interface{}) (bool, error) {
+		if item.(*model.Tube).Name == string(name) {
+			t = item.(*model.Tube)
+			return true, nil
+		}
+		return false, nil
+	})
+
+	if t != nil && c.Watch.Len() < 2 {
+		replyMsg(c, constant.MsgNotIgnored)
+		return
+	}
+
+	if t != nil {
+		c.Watch.Remove(t)
+	}
+	t = nil
+	replyLine(c, constant.StateSendWord, "WATCHING %d\r\n", c.Watch.Len())
+}
+
+// displayOpQuit
+func displayOpQuit(c *model.Coon) {
+	c.State = constant.StateClose
+}
+
+// displayOpPauseTube
+func displayOpPauseTube(c *model.Coon) {
+	idx := len(constant.CmdPauseTube)
+	name, err := utils.ReadTubeName(c.Cmd[idx:], &idx)
+	if err != nil {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	delay, err := utils.ReadDuration(c.Cmd[idx:], &idx)
+	if err != nil {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	utils.OpCt[constant.OpPauseTube]++
+
+	if !utils.IsValidTube(name) {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+
+	t := core.TubeFind(string(name))
+	if t == nil {
+		replyMsg(c, constant.MsgNotFound)
+		return
+	}
+
+	if delay == 0 {
+		delay = 1
+	}
+
+	t.UnpauseAt = time.Now().UnixNano() + delay
+	t.Pause = delay
+	t.Stat.PauseCt++
+
+	replyLine(c, constant.StateSendWord, "PAUSED\r\n")
+}
+
+// doStats
+func doStats(c *model.Coon, t int, data ...interface{}) {
+
+	var reply string
+	switch t {
+	case constant.OpStats:
+		reply = fmtStats(c.Srv)
+	case constant.OpStatsJob:
+		reply = fmtStatsJob(data[0].(*model.Job))
+	case constant.OpStatsTube:
+		reply = fmtStatsTube(data[0].(*model.Tube))
+	default:
+		return
+	}
+
+	replyLen := int64(len(reply))
+
+	c.OutJob = core.NewJob(replyLen)
+	if c.OutJob == nil {
+		replyErr(c, constant.MsgOutOfMemory)
+		return
+	}
+	/* Mark this job as a copy so it can be appropriately freed later on */
+	c.OutJob.R.State = constant.Copy
+
+	/* now actually format the stats data */
+	c.OutJob.Body = []byte(reply)
+	c.OutJobSent = 0
+	replyLine(c, constant.StateSendJob, "OK %d\r\n", replyLen-2)
 }
 
 // kickJobs
@@ -626,6 +923,7 @@ func fillExtraData(c *model.Coon) {
 	c.CmdLen = 0
 }
 
+// skip
 func skip(c *model.Coon, n int64, msg []byte) {
 	c.InJob = nil
 	c.InJobRead = n
@@ -642,6 +940,7 @@ func skip(c *model.Coon, n int64, msg []byte) {
 	c.State = constant.StateBitbucket
 }
 
+// connSetProducer
 func connSetProducer(c *model.Coon) {
 	if c.Type&constant.ConnTypeProducer > 0 {
 		return
@@ -650,6 +949,7 @@ func connSetProducer(c *model.Coon) {
 	utils.CurProducerCt++
 }
 
+// connSetWorker
 func connSetWorker(c *model.Coon) {
 	if c.Type&constant.ConnTypeWorker > 0 {
 		return
@@ -658,12 +958,14 @@ func connSetWorker(c *model.Coon) {
 	utils.CurWorkerCt++
 }
 
+// connSetSoonestJob
 func connSetSoonestJob(c *model.Coon, j *model.Job) {
 	if c.SoonestJob == nil || j.R.DeadlineAt < c.SoonestJob.R.DeadlineAt {
 		c.SoonestJob = j
 	}
 }
 
+// connReserveJob
 func connReserveJob(c *model.Coon, j *model.Job) {
 	j.Tube.Stat.ReservedCt++
 	j.R.ReserveCt++
@@ -676,6 +978,7 @@ func connReserveJob(c *model.Coon, j *model.Job) {
 	connSetSoonestJob(c, j)
 }
 
+// enqueueWaitingConn
 func enqueueWaitingConn(c *model.Coon) {
 	c.Type |= constant.ConnTypeWaiting
 	utils.GlobalState.WaitingCt++
@@ -687,6 +990,7 @@ func enqueueWaitingConn(c *model.Coon) {
 	})
 }
 
+// waitForJob
 func waitForJob(c *model.Coon, timeout int64) {
 	c.State = constant.StateWait
 	enqueueWaitingConn(c)
@@ -721,6 +1025,16 @@ func removeReservedJob(c *model.Coon, j *model.Job) *model.Job {
 // isJobReservedByConn
 func isJobReservedByConn(c *model.Coon, j *model.Job) bool {
 	return j != nil && j.Reservoir == c && j.R.State == constant.Reserved
+}
+
+// touchJob
+func touchJob(c *model.Coon, j *model.Job) bool {
+	if !isJobReservedByConn(c, j) {
+		return false
+	}
+	j.R.DeadlineAt = time.Now().UnixNano() + j.R.TTR
+	c.SoonestJob = nil
+	return true
 }
 
 // remove_delayed_job returns non-NULL value if job j was in the delayed state.
@@ -767,8 +1081,9 @@ func reply(c *model.Coon, line []byte, len int64, state int) {
 
 // replyErr
 func replyErr(c *model.Coon, err []byte) {
-	fmt.Printf(" %s", err)
-	replyMsg(c, append([]byte("server error: "), err...))
+	replyErr := fmt.Sprintf("server error: %s", string(err))
+	logrus.WithField("conn", *c).Error(replyErr)
+	replyMsg(c, []byte(replyErr))
 }
 
 // replyLine
@@ -794,7 +1109,7 @@ func processQueue() {
 	now := time.Now().UnixNano()
 	for j := core.NextAwaitedJob(now); j != nil; j = core.NextAwaitedJob(now) {
 		j.Tube.Ready.Remove(j.HeapIndex)
-		atomic.AddInt64(&utils.ReadyCt, -1)
+		utils.ReadyCt--
 		if j.R.Pri < constant.UrgentThreshold {
 			utils.GlobalState.UrgentCt--
 			j.Tube.Stat.UrgentCt--
@@ -844,4 +1159,169 @@ func enqueueJob(s *model.Server, j *model.Job, delay int64, updateStore bool) in
 // buriedJobP
 func buriedJobP(t *model.Tube) bool {
 	return !core.JobListEmpty(t.Buried)
+}
+
+// getDelayedJobCt
+func getDelayedJobCt() int {
+	var count int
+	core.GetTubes().Iterator(func(item interface{}) (bool, error) {
+		count += item.(*model.Tube).Delay.Len()
+		return false, nil
+	})
+	return count
+}
+
+func uptime() int64 {
+	return (time.Now().UnixNano() - utils.StartedAt) / 1000000000
+}
+
+// fmtStats
+func fmtStats(s *model.Server) string {
+	var whead, wcur int
+
+	// if (s->wal.head) {
+	// 	whead = s->wal.head->seq;
+	// }
+	//
+	// if (s->wal.cur) {
+	// 	wcur = s->wal.cur->seq;
+	// }
+
+	ru := &syscall.Rusage{}
+	syscall.Getrusage(syscall.RUSAGE_SELF, ru)
+
+	return fmt.Sprintf(constant.StatsFmt,
+		utils.GlobalState.UrgentCt,
+		utils.ReadyCt,
+		utils.GlobalState.ReservedCt,
+		getDelayedJobCt(),
+		utils.GlobalState.BuriedCt,
+		utils.OpCt[constant.OpPut],
+		utils.OpCt[constant.OpPeekJob],
+		utils.OpCt[constant.OpPeekReady],
+		utils.OpCt[constant.OpPeekDelayed],
+		utils.OpCt[constant.OpPeekBuried],
+		utils.OpCt[constant.OpReserve],
+		utils.OpCt[constant.OpReserveTimeout],
+		utils.OpCt[constant.OpDelete],
+		utils.OpCt[constant.OpRelease],
+		utils.OpCt[constant.OpUse],
+		utils.OpCt[constant.OpWatch],
+		utils.OpCt[constant.OpIgnore],
+		utils.OpCt[constant.OpBury],
+		utils.OpCt[constant.OpKick],
+		utils.OpCt[constant.OpTouch],
+		utils.OpCt[constant.OpStats],
+		utils.OpCt[constant.OpStatsJob],
+		utils.OpCt[constant.OpStatsTube],
+		utils.OpCt[constant.OpListTubes],
+		utils.OpCt[constant.OpListTubeUsed],
+		utils.OpCt[constant.OpListTubesWatched],
+		utils.OpCt[constant.OpPauseTube],
+		utils.TimeoutCt,
+		utils.GlobalState.TotalJobsCt,
+		*utils.MaxJobSize,
+		core.GetTubes().Len(),
+		utils.CurConnCt,
+		utils.CurProducerCt,
+		utils.CurWorkerCt,
+		utils.GlobalState.WaitingCt,
+		utils.TotConnCt,
+		os.Getpid(),
+		utils.Version,
+		ru.Utime.Sec,
+		ru.Utime.Usec,
+		ru.Stime.Sec,
+		ru.Stime.Usec,
+		uptime(),
+		whead, // TODO wait for wal implement
+		wcur,  // TODO wait for wal implement
+		0,     // TODO s- > wal.nmig, wait for wal implement
+		0,     // TODO s- > wal.nrec, wait for wal implement
+		0,     // TODO s- > wal.filesize, wait for wal implement
+		fmt.Sprint(utils.DrainMode == 1),
+		utils.InstanceHex,
+		utils.UtsName.Nodename,
+		utils.UtsName.Version,
+		utils.UtsName.Machine,
+	)
+}
+
+// fmtStatsJob
+func fmtStatsJob(j *model.Job) string {
+	var file int
+	var timeLeft int64
+	t := time.Now().UnixNano()
+
+	if j.R.State == constant.Reserved || j.R.State == constant.Delayed {
+		timeLeft = (j.R.DeadlineAt - t) / 1000000000
+	}
+	if j.File != nil {
+		file = j.File.Seq
+	}
+	return fmt.Sprintf(constant.StatsFmtJob,
+		j.R.ID,
+		j.Tube.Name,
+		core.JobState(j.R.State),
+		j.R.Pri,
+		(t-j.R.CreateAt)/1000000000,
+		j.R.Delay/1000000000,
+		j.R.TTR/1000000000,
+		timeLeft,
+		file,
+		j.R.ReserveCt,
+		j.R.TimeoutCt,
+		j.R.ReleaseCt,
+		j.R.BuryCt,
+		j.R.KickCt,
+	)
+}
+
+// fmtStatsTube
+func fmtStatsTube(t *model.Tube) string {
+	var timeLeft int64
+	if t.Pause > 0 {
+		timeLeft = (t.UnpauseAt - time.Now().UnixNano()) / 1000000000
+	}
+	return fmt.Sprintf(constant.StatsFmtTube,
+		t.Name,
+		t.Stat.UrgentCt,
+		t.Ready.Len(),
+		t.Stat.ReservedCt,
+		t.Delay.Len(),
+		t.Stat.BuriedCt,
+		t.Stat.TotalJobsCt,
+		t.UsingCt,
+		t.WatchingCt,
+		t.Stat.WaitingCt,
+		t.Stat.TotalDeleteCt,
+		t.Stat.PauseCt,
+		t.Pause/1000000000,
+		timeLeft,
+	)
+}
+
+// doListTubes
+func doListTubes(c *model.Coon, l *structure.Ms) {
+	var respZ int64 = 6
+	var t *model.Tube
+
+	l.Iterator(func(item interface{}) (bool, error) {
+		t = item.(*model.Tube)
+		respZ += 3 + int64(len(t.Name))
+		return false, nil
+	})
+
+	c.OutJob = core.NewJob(respZ)
+	c.OutJob.R.State = constant.Copy
+	c.OutJob.Body = append(c.OutJob.Body, "---\n"...)
+
+	l.Iterator(func(item interface{}) (bool, error) {
+		t = item.(*model.Tube)
+		c.OutJob.Body = append(c.OutJob.Body, "- "+t.Name+"\n"...)
+		return false, nil
+	})
+	c.OutJob.Body = append(c.OutJob.Body, "\r\n"...)
+	c.OutJobSent = 0
+	replyLine(c, constant.StateSendJob, "OK %d\r\n", respZ-2)
 }

@@ -23,6 +23,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/sjatsh/beanstalk-go/model"
 	"github.com/sjatsh/beanstalk-go/net"
 	"github.com/sjatsh/beanstalk-go/utils"
@@ -31,6 +33,7 @@ import (
 func main() {
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
+	logrus.SetFormatter(&logrus.JSONFormatter{})
 
 	srv, err := net.NewServer(
 		model.WithPort(*utils.Port),
@@ -38,19 +41,8 @@ func main() {
 		model.WithUser(*utils.User),
 	)
 	if err != nil {
-		panic(err)
+		logrus.Panicln(err)
 	}
-
-	utils.StartedAt = time.Now().UnixNano()
-	utils.InstanceHex, err = utils.RandInstanceHex()
-	if err != nil {
-		panic(err)
-	}
-	utils.UtsName, err = utils.GetUname()
-	if err != nil {
-		panic(err)
-	}
-
 	if *utils.User != "" {
 		su(*utils.User)
 	}
@@ -58,22 +50,22 @@ func main() {
 	setSigHandlers()
 
 	if net.Start(srv) != nil {
-		panic(err)
+		logrus.Panicln(err)
 	}
 }
 
 func su(user string) {
 	usr, err := osUser.Lookup(user)
 	if err != nil {
-		panic(err)
+		logrus.Panicln(err)
 	}
 	gid, _ := strconv.ParseInt(usr.Gid, 10, 64)
 	uid, _ := strconv.ParseInt(usr.Uid, 10, 64)
 	if err := syscall.Setgid(int(gid)); err != nil {
-		panic(err)
+		logrus.Panicln(err)
 	}
 	if err := syscall.Setuid(int(uid)); err != nil {
-		panic(err)
+		logrus.Panicln(err)
 	}
 }
 

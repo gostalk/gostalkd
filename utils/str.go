@@ -20,7 +20,16 @@ import (
 )
 
 func StrLen(s []byte) int {
-	return bytes.Index(s, []byte("\r"))
+	l := bytes.Index(s, []byte("\r"))
+	if l == -1 {
+		l = len(s)
+	}
+	return l
+}
+
+func ToStr(s []byte) string {
+	idx := bytes.Index(s, []byte("\r"))
+	return string(s[:idx])
 }
 
 func StrTol(str []byte) (int64, error) {
@@ -45,6 +54,7 @@ func ReadInt(buf []byte, idx *int) (int64, error) {
 	if buf[begin] < '0' || buf[begin] > '9' {
 		return 0, errors.New("fmt error")
 	}
+
 	var data []byte
 	end := begin
 	for ; end < len(buf); end++ {
@@ -68,4 +78,21 @@ func ReadDuration(buf []byte, idx *int) (int64, error) {
 	}
 	duration := t * 1000000000
 	return duration, nil
+}
+
+func ReadTubeName(buf []byte, idx *int) ([]byte, error) {
+	begin := 0
+	for i := 0; i < len(buf); i++ {
+		if buf[i] != ' ' {
+			break
+		}
+		begin++
+	}
+
+	l := StrSpn(buf[begin:])
+	if l == 0 {
+		return nil, errors.New("is invalid tube name")
+	}
+	*idx += begin + l
+	return buf[begin : l+begin], nil
 }

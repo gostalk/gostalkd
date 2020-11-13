@@ -23,9 +23,15 @@ import (
 )
 
 var (
-	tubes       = structure.NewMs()         // tubes链表
-	defaultTube = TubeFindOrMake("default") // 默认tube
+	tubes       *structure.Ms // tubes链表
+	defaultTube *model.Tube   // 默认tube
 )
+
+func init() {
+	tubes = structure.NewMs()
+	defaultTube = NewTube("default")
+	tubes.Append(defaultTube)
+}
 
 // NewTube 创建一个新的tube
 func NewTube(name string) *model.Tube {
