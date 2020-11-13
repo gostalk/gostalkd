@@ -68,7 +68,7 @@ func (m *Ms) Delete(idx int) interface{} {
 		return nil
 	}
 	item := m.items[idx]
-	m.items = append(m.items[:idx], m.items[idx+1:])
+	m.items = append(m.items[:idx], m.items[idx+1:]...)
 	if m.onRemove != nil {
 		(*m.onRemove)(m, item, idx)
 	}
@@ -76,8 +76,10 @@ func (m *Ms) Delete(idx int) interface{} {
 }
 
 func (m *Ms) Clear() {
-	m.last = 0
+	for ; m.Delete(0) != nil; {
+	}
 	m.items = []interface{}{}
+	m.last = 0
 }
 
 func (m *Ms) Remove(item interface{}) bool {

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/sjatsh/beanstalk-go/constant"
+	"github.com/sjatsh/beanstalk-go/model"
 )
 
 var (
@@ -24,7 +25,7 @@ var (
 	StartedAt int64
 
 	// OpCt Operation command count statistics
-	OpCt        = make([]int, constant.TpALOps)
+	OpCt        = make([]int, constant.TotalOps)
 	AllJobsUsed int64
 	ReadyCt     int64
 	TimeoutCt   uint64
@@ -32,20 +33,10 @@ var (
 	CurConnCt     uint64
 	CurWorkerCt   uint64
 	CurProducerCt uint64
-	TotConnCt     uint64
+	TotalConnCt   uint64
 
-	GlobalState = State{}
+	GlobalState = model.State{}
 )
-
-type State struct {
-	UrgentCt      uint64
-	WaitingCt     uint64
-	BuriedCt      uint64
-	ReservedCt    uint64
-	PauseCt       uint64
-	TotalDeleteCt uint64
-	TotalJobsCt   uint64
-}
 
 func init() {
 	StartedAt = time.Now().UnixNano()

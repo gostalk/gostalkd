@@ -13,27 +13,4 @@
 // limitations under the License.
 package utils
 
-import (
-	"os/exec"
-)
-
-var versionCmd = `if git describe >/dev/null 2>&1
-then
-    git describe --tags --match=dev* | sed s/^dev// | tr - + | tr -d '\n'
-    if ! git diff --quiet HEAD
-    then printf +mod
-    fi
-else
-    printf unknown
-fi
-`
-
 var Version string
-
-func init() {
-	r, err := exec.Command("/bin/sh", "-c", versionCmd).Output()
-	if err != nil {
-		panic(err)
-	}
-	Version = string(r)
-}

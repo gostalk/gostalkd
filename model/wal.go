@@ -17,4 +17,16 @@ type Wal struct {
 	FileSize int
 	Use      int
 	Dir      string
+	Head     *File
+	Cur      *File
+	Tail     *File
+	NFile    int
+	Next     int
+	Resv     int64
+	Alive    int64
+	Nmig     int64
+	Nrec     int64
+	WantSync int
+	SyncRate int64
+	LastSync int64
 }

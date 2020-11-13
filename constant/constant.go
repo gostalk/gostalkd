@@ -86,7 +86,7 @@ const (
 	OpPauseTube
 	OpKickJob
 	OpReserveJob
-	TpALOps
+	TotalOps
 
 	CmdPut              = "put"
 	CmdPeekJob          = "peek"

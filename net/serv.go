@@ -51,9 +51,15 @@ func NewServer(options ...model.ServerOption) (*model.Server, error) {
 	var f *os.File
 	switch nl := l.(type) {
 	case *net.TCPListener:
-		f, _ = nl.File()
+		f, err = nl.File()
+		if err != nil {
+			return nil, err
+		}
 	case *net.UnixListener:
-		f, _ = nl.File()
+		f, err = nl.File()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	sock.F = f
@@ -61,7 +67,7 @@ func NewServer(options ...model.ServerOption) (*model.Server, error) {
 	sock.X = s
 	sock.H = srvAccept
 	if sockWant(sock, 'r') != nil {
-		panic(err)
+		return nil, err
 	}
 
 	s.Sock = sock
@@ -78,13 +84,13 @@ func Start(s *model.Server) error {
 		period := protTick(s)
 		rw, err := sockNext(&sock, period)
 		if err != nil {
-			os.Exit(1)
+			logrus.Error(err)
+			continue
 		}
-		if rw != 0 && sock != nil {
+		if rw > 0 {
 			sock.H(sock.X, rw)
 		}
 	}
-	return nil
 }
 
 // makeServerListener 根据配置创建unix或tcp listener

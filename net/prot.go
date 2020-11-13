@@ -103,18 +103,14 @@ func protTick(s *model.Server) time.Duration {
 
 	// 从coons中找出reserve job ttr时间最小的
 	for i := s.Connes.Len(); i > s.Connes.Len(); i = s.Connes.Len() {
-		ci := s.Connes.Take()
-		if ci == nil {
-			continue
-		}
-		c := ci.Value.(*model.Coon)
+		item := s.Connes.Take()
+		c := item.Value.(*model.Coon)
 		d = c.TickAt - now
 		if d > 0 {
 			period = int64(math.Min(float64(period), float64(d)))
 			break
 		}
-
-		s.Connes.Remove(0)
+		s.Connes.Remove(item.Index())
 		c.InCoons = 0
 		connTimeout(c)
 	}
@@ -148,63 +144,63 @@ func dispatchCmd(c *model.Coon) {
 
 	switch t {
 	case constant.OpPut:
-		displayOpPut(c)
+		dispatchOpPut(c)
 	case constant.OpPeekReady:
-		displayOpPeekReady(c)
+		dispatchOpPeekReady(c)
 	case constant.OpPeekDelayed:
-		displayOpPeekDelayed(c)
+		dispatchOpPeekDelayed(c)
 	case constant.OpPeekBuried:
-		displayOpPeekBuried(c)
+		dispatchOpPeekBuried(c)
 	case constant.OpPeekJob:
-		displayOpPeekJob(c)
+		dispatchOpPeekJob(c)
 	case constant.OpReserveTimeout:
-		timeout = displayOpReserveTimeout(c)
+		timeout = dispatchOpReserveTimeout(c)
 		fallthrough
 	case constant.OpReserve:
-		displayOpReserve(c, timeout)
+		dispatchOpReserve(c, timeout)
 	case constant.OpReserveJob:
-		displayOpReserveJob(c)
+		dispatchOpReserveJob(c)
 	case constant.OpDelete:
-		displayOpDelete(c)
+		dispatchOpDelete(c)
 	case constant.OpRelease:
-		displayOpRelease(c)
+		dispatchOpRelease(c)
 	case constant.OpBury:
-		displayOpBury(c)
+		dispatchOpBury(c)
 	case constant.OpKick:
-		displayOpKick(c)
+		dispatchOpKick(c)
 	case constant.OpKickJob:
-		displayOpKickJob(c)
+		dispatchOpKickJob(c)
 	case constant.OpTouch:
-		displayOpTouch(c)
+		dispatchOpTouch(c)
 	case constant.OpStats:
-		displayStats(c)
+		dispatchStats(c)
 	case constant.OpStatsJob:
-		displayStatsJob(c)
+		dispatchStatsJob(c)
 	case constant.OpStatsTube:
-		displayStatsTube(c)
+		dispatchStatsTube(c)
 	case constant.OpListTubes:
-		displayOpListTubes(c)
+		dispatchOpListTubes(c)
 	case constant.OpListTubeUsed:
-		displayOpListTubeUsed(c)
+		dispatchOpListTubeUsed(c)
 	case constant.OpListTubesWatched:
-		displayOpListTubesWatched(c)
+		dispatchOpListTubesWatched(c)
 	case constant.OpUse:
-		displayOpUse(c)
+		dispatchOpUse(c)
 	case constant.OpWatch:
-		displayOpWatch(c)
+		dispatchOpWatch(c)
 	case constant.OpIgnore:
-		displayOpIgnore(c)
+		dispatchOpIgnore(c)
 	case constant.OpQuit:
-		displayOpQuit(c)
+		dispatchOpQuit(c)
 	case constant.OpPauseTube:
-		displayOpPauseTube(c)
+		dispatchOpPauseTube(c)
 	default:
 		replyMsg(c, constant.MsgUnknownCommand)
 	}
 }
 
-// displayOpPut 处理put指令
-func displayOpPut(c *model.Coon) {
+// dispatchOpPut 处理put指令
+func dispatchOpPut(c *model.Coon) {
 	idx := 4
 	pri, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -229,7 +225,7 @@ func displayOpPut(c *model.Coon) {
 
 	utils.OpCt[constant.OpPut]++
 
-	if bodySize > constant.JobDataSizeLimitMax {
+	if bodySize > *utils.MaxJobSize {
 		skip(c, bodySize+2, constant.MsgJobTooBig)
 		return
 	}
@@ -254,8 +250,8 @@ func displayOpPut(c *model.Coon) {
 	maybeEnqueueInComingJob(c)
 }
 
-// displayOpPickReady
-func displayOpPeekReady(c *model.Coon) {
+// dispatchOpPeekReady
+func dispatchOpPeekReady(c *model.Coon) {
 	/* don't allow trailing garbage */
 	if c.CmdLen != len(constant.CmdPeekReady)+2 {
 		replyMsg(c, constant.MsgBadFormat)
@@ -279,8 +275,8 @@ func displayOpPeekReady(c *model.Coon) {
 	replyJob(c, j, constant.MsgFound)
 }
 
-// displayOpPeekDelayed
-func displayOpPeekDelayed(c *model.Coon) {
+// dispatchOpPeekDelayed
+func dispatchOpPeekDelayed(c *model.Coon) {
 	if c.CmdLen != len(constant.CmdPeekDelayed)+2 {
 		replyMsg(c, constant.MsgBadFormat)
 		return
@@ -302,8 +298,8 @@ func displayOpPeekDelayed(c *model.Coon) {
 	replyJob(c, j, constant.MsgFound)
 }
 
-// displayOpPeekBuried
-func displayOpPeekBuried(c *model.Coon) {
+// dispatchOpPeekBuried
+func dispatchOpPeekBuried(c *model.Coon) {
 	if c.CmdLen != len(constant.CmdPeekBuried)+2 {
 		replyMsg(c, constant.MsgBadFormat)
 		return
@@ -322,8 +318,8 @@ func displayOpPeekBuried(c *model.Coon) {
 	replyJob(c, j, constant.MsgFound)
 }
 
-// displayOpPeekJob
-func displayOpPeekJob(c *model.Coon) {
+// dispatchOpPeekJob
+func dispatchOpPeekJob(c *model.Coon) {
 	idx := len(constant.CmdPeekJob)
 	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -340,8 +336,8 @@ func displayOpPeekJob(c *model.Coon) {
 	replyJob(c, j, constant.MsgFound)
 }
 
-// displayOpReserveTimeout 中间状态用于从指令中获取timeout
-func displayOpReserveTimeout(c *model.Coon) int64 {
+// dispatchOpReserveTimeout 中间状态用于从指令中获取timeout
+func dispatchOpReserveTimeout(c *model.Coon) int64 {
 	timeout, err := utils.StrTol(c.Cmd[len(constant.CmdReserveTimeout):])
 	if err != nil {
 		replyMsg(c, constant.MsgBadFormat)
@@ -350,8 +346,8 @@ func displayOpReserveTimeout(c *model.Coon) int64 {
 	return timeout
 }
 
-// displayOpReserve 处理 reserve 指令
-func displayOpReserve(c *model.Coon, timeout int64) {
+// dispatchOpReserve 处理 reserve 指令
+func dispatchOpReserve(c *model.Coon, timeout int64) {
 	if c.CmdLen != len(constant.CmdReserve)+2 {
 		replyMsg(c, constant.MsgBadFormat)
 		return
@@ -367,8 +363,8 @@ func displayOpReserve(c *model.Coon, timeout int64) {
 	processQueue()
 }
 
-// displayOpReserveJob
-func displayOpReserveJob(c *model.Coon) {
+// dispatchOpReserveJob
+func dispatchOpReserveJob(c *model.Coon) {
 	idx := len(constant.CmdReserveJob)
 	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -403,8 +399,8 @@ func displayOpReserveJob(c *model.Coon) {
 	replyJob(c, j, constant.MsgReserved)
 }
 
-// displayOpDelete
-func displayOpDelete(c *model.Coon) {
+// dispatchOpDelete
+func dispatchOpDelete(c *model.Coon) {
 	idx := len(constant.CmdDelete)
 	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -439,16 +435,15 @@ func displayOpDelete(c *model.Coon) {
 	// TODO r = walwrite(&c->srv->wal, j);
 	//  walmaint(&c->srv->wal);
 	core.JobFree(j)
-	// if (!r) {
-	// 	reply_serr(c, MSG_INTERNAL_ERROR);
-	// 	return;
-	// }
-
+	if j == nil {
+		replyMsg(c, constant.MsgInternalError)
+		return
+	}
 	replyMsg(c, constant.MsgDeleted)
 }
 
-// displayOpRelease
-func displayOpRelease(c *model.Coon) {
+// dispatchOpRelease
+func dispatchOpRelease(c *model.Coon) {
 	idx := len(constant.CmdRelease)
 	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -502,8 +497,8 @@ func displayOpRelease(c *model.Coon) {
 	replyMsg(c, constant.MsgBuried)
 }
 
-// displayOpBury
-func displayOpBury(c *model.Coon) {
+// dispatchOpBury
+func dispatchOpBury(c *model.Coon) {
 	idx := len(constant.CmdRelease)
 	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -531,8 +526,8 @@ func displayOpBury(c *model.Coon) {
 	replyMsg(c, constant.MsgBuried)
 }
 
-// displayOpKick
-func displayOpKick(c *model.Coon) {
+// dispatchOpKick
+func dispatchOpKick(c *model.Coon) {
 	count, err := utils.StrTol(c.Cmd[len(constant.CmdKick):])
 	if err != nil {
 		replyMsg(c, constant.MsgBadFormat)
@@ -544,8 +539,8 @@ func displayOpKick(c *model.Coon) {
 	replyLine(c, constant.StateSendWord, "KICKED %d\r\n", i)
 }
 
-// displayOpKickJob
-func displayOpKickJob(c *model.Coon) {
+// dispatchOpKickJob
+func dispatchOpKickJob(c *model.Coon) {
 	idx := len(constant.CmdRelease)
 	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -569,8 +564,8 @@ func displayOpKickJob(c *model.Coon) {
 	replyMsg(c, constant.MsgKicked)
 }
 
-// displayOpTouch
-func displayOpTouch(c *model.Coon) {
+// dispatchOpTouch
+func dispatchOpTouch(c *model.Coon) {
 	idx := len(constant.CmdRelease)
 	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -586,8 +581,8 @@ func displayOpTouch(c *model.Coon) {
 	replyMsg(c, constant.MsgTouched)
 }
 
-// displayStats
-func displayStats(c *model.Coon) {
+// dispatchStats
+func dispatchStats(c *model.Coon) {
 	if c.CmdLen != len(constant.CmdStats)+2 {
 		replyMsg(c, constant.MsgBadFormat)
 		return
@@ -596,8 +591,8 @@ func displayStats(c *model.Coon) {
 	doStats(c, constant.OpStats)
 }
 
-// displayStatsJob
-func displayStatsJob(c *model.Coon) {
+// dispatchStatsJob
+func dispatchStatsJob(c *model.Coon) {
 	idx := len(constant.CmdStatsJob)
 	id, err := utils.ReadInt(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -619,8 +614,8 @@ func displayStatsJob(c *model.Coon) {
 	doStats(c, constant.OpStatsJob, j)
 }
 
-// displayStatsTube
-func displayStatsTube(c *model.Coon) {
+// dispatchStatsTube
+func dispatchStatsTube(c *model.Coon) {
 	idx := len(constant.CmdStatsTube)
 	name, err := utils.ReadTubeName(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -641,8 +636,8 @@ func displayStatsTube(c *model.Coon) {
 	doStats(c, constant.OpStatsTube, t)
 }
 
-// displayOpListTubes
-func displayOpListTubes(c *model.Coon) {
+// dispatchOpListTubes
+func dispatchOpListTubes(c *model.Coon) {
 	if c.CmdLen != len(constant.CmdListTubes)+2 {
 		replyMsg(c, constant.MsgBadFormat)
 		return
@@ -651,8 +646,8 @@ func displayOpListTubes(c *model.Coon) {
 	doListTubes(c, core.GetTubes())
 }
 
-// displayOpListTubeUsed
-func displayOpListTubeUsed(c *model.Coon) {
+// dispatchOpListTubeUsed
+func dispatchOpListTubeUsed(c *model.Coon) {
 	if c.CmdLen != len(constant.CmdListTubeUsed)+2 {
 		replyMsg(c, constant.MsgBadFormat)
 		return
@@ -661,8 +656,8 @@ func displayOpListTubeUsed(c *model.Coon) {
 	replyLine(c, constant.StateSendWord, "USING %s\r\n", c.Use.Name)
 }
 
-// displayOpListTubeUsed
-func displayOpListTubesWatched(c *model.Coon) {
+// dispatchOpListTubesWatched
+func dispatchOpListTubesWatched(c *model.Coon) {
 	if c.CmdLen != len(constant.CmdListTubesWatched)+2 {
 		replyMsg(c, constant.MsgBadFormat)
 		return
@@ -671,8 +666,8 @@ func displayOpListTubesWatched(c *model.Coon) {
 	doListTubes(c, c.Watch)
 }
 
-// displayOpUse
-func displayOpUse(c *model.Coon) {
+// dispatchOpUse
+func dispatchOpUse(c *model.Coon) {
 	idx := len(constant.CmdUse)
 	name, err := utils.ReadTubeName(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -693,8 +688,8 @@ func displayOpUse(c *model.Coon) {
 	replyLine(c, constant.StateSendWord, "USING %s\r\n", c.Use.Name)
 }
 
-// displayOpWatch
-func displayOpWatch(c *model.Coon) {
+// dispatchOpWatch
+func dispatchOpWatch(c *model.Coon) {
 	idx := len(constant.CmdWatch)
 	name, err := utils.ReadTubeName(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -714,8 +709,8 @@ func displayOpWatch(c *model.Coon) {
 	replyLine(c, constant.StateSendWord, "WATCHING %d\r\n", c.Watch.Len())
 }
 
-// displayOpIgnore
-func displayOpIgnore(c *model.Coon) {
+// dispatchOpIgnore
+func dispatchOpIgnore(c *model.Coon) {
 	idx := len(constant.CmdIgnore)
 	name, err := utils.ReadTubeName(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -749,13 +744,13 @@ func displayOpIgnore(c *model.Coon) {
 	replyLine(c, constant.StateSendWord, "WATCHING %d\r\n", c.Watch.Len())
 }
 
-// displayOpQuit
-func displayOpQuit(c *model.Coon) {
+// dispatchOpQuit
+func dispatchOpQuit(c *model.Coon) {
 	c.State = constant.StateClose
 }
 
-// displayOpPauseTube
-func displayOpPauseTube(c *model.Coon) {
+// dispatchOpPauseTube
+func dispatchOpPauseTube(c *model.Coon) {
 	idx := len(constant.CmdPauseTube)
 	name, err := utils.ReadTubeName(c.Cmd[idx:], &idx)
 	if err != nil {
@@ -1226,7 +1221,7 @@ func fmtStats(s *model.Server) string {
 		utils.CurProducerCt,
 		utils.CurWorkerCt,
 		utils.GlobalState.WaitingCt,
-		utils.TotConnCt,
+		utils.TotalConnCt,
 		os.Getpid(),
 		utils.Version,
 		ru.Utime.Sec,

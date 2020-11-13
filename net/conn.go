@@ -55,7 +55,7 @@ func NewConn(f *os.File, startState int, use, watch *model.Tube) *model.Coon {
 	core.JobListRest(c.ReservedJobs)
 
 	utils.CurConnCt++
-	utils.TotConnCt++
+	utils.TotalConnCt++
 	return c
 }
 
@@ -283,6 +283,7 @@ func connClose(c *model.Coon) {
 	}
 
 	c.Watch.Clear()
+
 	c.Use.UsingCt--
 	c.Use = nil
 

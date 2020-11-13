@@ -18,8 +18,6 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
-	osUser "os/user"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -30,11 +28,18 @@ import (
 	"github.com/sjatsh/beanstalk-go/utils"
 )
 
+var version string
+
+func init() {
+	utils.Version = version
+}
+
 func main() {
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 
+	// new server object
 	srv, err := net.NewServer(
 		model.WithPort(*utils.Port),
 		model.WithAddr(*utils.ListenAddr),
@@ -43,44 +48,16 @@ func main() {
 	if err != nil {
 		logrus.Panicln(err)
 	}
-	if *utils.User != "" {
-		su(*utils.User)
-	}
 
+	// parse options
+	utils.OptParse(srv)
+
+	// sig handlers
 	setSigHandlers()
 
 	if net.Start(srv) != nil {
 		logrus.Panicln(err)
 	}
-}
-
-func su(user string) {
-	usr, err := osUser.Lookup(user)
-	if err != nil {
-		logrus.Panicln(err)
-	}
-	gid, _ := strconv.ParseInt(usr.Gid, 10, 64)
-	uid, _ := strconv.ParseInt(usr.Uid, 10, 64)
-	if err := syscall.Setgid(int(gid)); err != nil {
-		logrus.Panicln(err)
-	}
-	if err := syscall.Setuid(int(uid)); err != nil {
-		logrus.Panicln(err)
-	}
-}
-
-func enterDrainMode(ch chan os.Signal) {
-	go func() {
-		<-ch
-		utils.DrainMode = 1
-	}()
-}
-
-func handleSigtermPid1(ch chan os.Signal) {
-	go func() {
-		<-ch
-		os.Exit(143)
-	}()
 }
 
 func setSigHandlers() {
@@ -96,4 +73,18 @@ func setSigHandlers() {
 		signal.Notify(sigusr, syscall.SIGTERM)
 		handleSigtermPid1(sigterm)
 	}
+}
+
+func enterDrainMode(ch chan os.Signal) {
+	go func() {
+		<-ch
+		utils.DrainMode = 1
+	}()
+}
+
+func handleSigtermPid1(ch chan os.Signal) {
+	go func() {
+		<-ch
+		os.Exit(143)
+	}()
 }
