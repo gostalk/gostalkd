@@ -1,11 +1,15 @@
-[![Build Status](https://travis-ci.org/sjatsh/beanstalk-go.svg?branch=main)](https://travis-ci.org/sjatsh/beanstalk-go.svg?branch=main)
-
 # beanstalk-go
 
-Simple and fast general purpose work queue.  
+English | [简体中文](readme.md)
 
-Fully [Beanstalk](https://github.com/beanstalkd/beanstalkd) compatible task queue implemented by golang for learning
+[![Build Status](https://travis-ci.org/sjatsh/beanstalk-go.svg?branch=main)](https://travis-ci.org/sjatsh/beanstalk-go.svg?branch=main)
+
+# Description
+
+ - Simple and fast general purpose work queue.
+ - Fully [Beanstalk](https://github.com/beanstalkd/beanstalkd) compatible task queue implemented by golang for learning
 purpose
+ - [ProtocolDescription](protocol.zh-CN.md)
 
 # Milepost
 
@@ -18,7 +22,7 @@ make
 ./beanstalkd
 ```
 
-also try
+view support commands
 
 ```bash
 ./beanstalk -h
