@@ -1,1 +1,44 @@
+[![Build Status](https://travis-ci.org/sjatsh/beanstalk-go.svg?branch=master)](https://travis-ci.org/sjatsh/beanstalk-go)
+
 # beanstalk-go
+
+Simple and fast general purpose work queue.  
+
+Fully [Beanstalk](https://github.com/beanstalkd/beanstalkd) compatible task queue implemented by golang for learning
+purpose
+
+# Quick Start
+
+```bash
+make
+./beanstalkd
+```
+
+also try
+
+```bash
+./beanstalk -h
+```
+
+```bash
+Usage of ./beanstalkd:
+-F	never fsync
+-V	increase verbosity
+-b string
+  	write-ahead log directory
+-f int
+  	fsync at most once every MS milliseconds (default is 50ms);use -f0 for "always fsync" (default 50)
+-l string
+  	listen on address (default is 0.0.0.0) (default "0.0.0.0")
+-p int
+  	listen on port (default is 11400) (default 11400)
+-s int
+  	set the size of each write-ahead log file (default is 10485760);will be rounded up to a multiple of 4096 bytes (default 10485760)
+-u string
+  	become user and group
+-v	show version information
+-z int
+  	set the maximum job size in bytes (default is 65535);max allowed is 1073741824 bytes (default 65535)
+```
+
+Required golang
