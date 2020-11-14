@@ -19,6 +19,12 @@
 
 ## 快速开始
 
+使用go get安装
+```bash
+GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/sjatsh/beanstalk-go
+```
+
+手动编译
 ```bash
 make
 ./beanstalkd

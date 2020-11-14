@@ -20,11 +20,16 @@ purpose
 
 ## Quick Start
 
+using go get install
+```bash
+GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/sjatsh/beanstalk-go
+```
+
+using make you self
 ```bash
 make
 ./beanstalkd
 ```
-
 view support commands
 
 ```bash

@@ -1,5 +1,5 @@
 
-VERSION=$(shell ./version.sh)
+VERSION=$(shell ./vers.sh)
 
 all:
-	go build  -ldflags "-X 'main.version=${VERSION}'" -o beanstalkd .
+	go build  -ldflags "-X 'main.version=${VERSION}'" -o beanstalk-go .
