@@ -43,7 +43,7 @@ var (
 
 func OptParse(s *model.Server) {
 	if *ShowVersion {
-		fmt.Printf("beanstalkd %s\n", Version)
+		fmt.Printf("beanstalk-go %s\n", Version)
 		os.Exit(0)
 	}
 
