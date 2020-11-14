@@ -3,7 +3,7 @@
 English | [简体中文](readme.md)
 
 [![Build Status](https://travis-ci.org/sjatsh/beanstalk-go.svg?branch=main)](https://travis-ci.org/sjatsh/beanstalk-go.svg?branch=main)
-[![Codecov](https://img.shields.io/codecov/c/github/sjatsh/beanstalk-go/master)](https://github.com/sjatsh/beanstalk-go)
+[![Codecov](https://img.shields.io/codecov/c/github/sjatsh/beanstalk-go/main)](https://github.com/sjatsh/beanstalk-go)
 [![Release](https://img.shields.io/github/release/sjatsh/beanstalk-go.svg?label=Release)](https://github.com/sjatsh/beanstalk-go/releases)
 [![License](https://img.shields.io/github/license/sjatsh/beanstalk-go)](https://github.com/sjatsh/beanstalk-go)
 
