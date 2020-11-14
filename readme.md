@@ -33,7 +33,7 @@ make
 查看支持命令
 
 ```bash
-./beanstalk -h
+./beanstalk-go -h
 ```
 
 ```bash

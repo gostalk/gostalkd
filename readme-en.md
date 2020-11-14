@@ -33,7 +33,7 @@ make
 view support commands
 
 ```bash
-./beanstalk -h
+./beanstalk-go -h
 ```
 
 ```bash
