@@ -28,7 +28,7 @@ GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/sjatsh
 using make you self
 ```bash
 make
-./beanstalkd
+./beanstalk-go
 ```
 view support commands
 

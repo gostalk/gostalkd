@@ -27,7 +27,7 @@ GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/sjatsh
 手动编译
 ```bash
 make
-./beanstalkd
+./beanstalk-go
 ```
 
 查看支持命令
