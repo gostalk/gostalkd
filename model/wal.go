@@ -15,7 +15,7 @@ package model
 
 type Wal struct {
 	FileSize int
-	Use      int
+	Use      bool
 	Dir      string
 	Head     *File
 	Cur      *File

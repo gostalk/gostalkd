@@ -15,12 +15,17 @@ package constant
 
 // 默认server启动参数
 const (
-	DefaultPort                  = 11400
-	DefaultFsyncMs               = 50
-	DefaultListenAddr            = "0.0.0.0"
-	DefaultMaxJobSize            = 1<<16 - 1
-	DefaultEachWriteAheadLogSize = 10485760
-	DefaultPeriod                = int64(0x34630B8A000)
+	DefaultPort       = 11400
+	DefaultFsyncMs    = 50
+	DefaultListenAddr = "0.0.0.0"
+	DefaultMaxJobSize = 1<<16 - 1
+	DefaultFileSize   = 10 << 20
+	DefaultPeriod     = int64(0x34630B8A000)
+)
+
+const (
+	WalVer  = int64(7)
+	WalVer5 = int64(5)
 )
 
 const (

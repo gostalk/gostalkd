@@ -21,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sjatsh/beanstalk-go/core"
 	"github.com/sjatsh/beanstalk-go/model"
 	"github.com/sjatsh/beanstalk-go/net"
 	"github.com/sjatsh/beanstalk-go/utils"
@@ -32,12 +33,15 @@ func init() {
 	utils.Version = version
 }
 
+var srv *model.Server
+
 func main() {
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 
+	var err error
 	// new server object
-	srv, err := net.NewServer(
+	srv, err = net.NewServer(
 		model.WithPort(*utils.Port),
 		model.WithAddr(*utils.ListenAddr),
 		model.WithUser(*utils.User),
@@ -48,9 +52,10 @@ func main() {
 
 	// parse options
 	utils.OptParse(srv)
-
 	// sig handlers
 	setSigHandlers()
+	// srvAcquireWal
+	net.SrvAcquireWal(srv)
 
 	if net.Start(srv) != nil {
 		utils.Log.Panicln(err)
@@ -77,6 +82,7 @@ func enterDrainMode(ch chan os.Signal) {
 		<-ch
 		utils.Log.Infoln("get SIGUSR1 sig")
 		utils.DrainMode = 1
+		core.WalSync(&srv.Wal)
 	}()
 }
 
@@ -84,6 +90,7 @@ func handleSigtermPid1(ch chan os.Signal) {
 	go func() {
 		<-ch
 		utils.Log.Infoln("get SIGTERM sig")
+		core.WalSync(&srv.Wal)
 		os.Exit(143)
 	}()
 }

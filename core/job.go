@@ -81,10 +81,11 @@ func MakeJobWithID(pri uint32, delay, ttr, bodySize int64, tube *model.Tube, id 
 
 func BuryJob(s *model.Server, j *model.Job, updateStore bool) bool {
 	if updateStore {
-		// TODO int z = walresvupdate(&s->wal);
-		// if (!z)
-		// return 0;
-		// j->walresv += z;
+		z := WalResvUpdate(&s.Wal)
+		if z <= 0 {
+			return false
+		}
+		j.WalResv += z
 	}
 
 	JobListInsert(j, j.Tube.Buried)
@@ -95,10 +96,10 @@ func BuryJob(s *model.Server, j *model.Job, updateStore bool) bool {
 	j.R.BuryCt++
 
 	if updateStore {
-		// TODO if !walwrite(&s- > wal, j) {
-		// 	return 0
-		// }
-		// walmaint(&s- > wal)
+		if !WalWrite(&s.Wal, j) {
+			return false
+		}
+		WalMain(&s.Wal)
 	}
 
 	return true

@@ -438,11 +438,11 @@ func dispatchOpDelete(c *model.Coon) {
 
 	j.Tube.Stat.TotalDeleteCt++
 	j.R.State = constant.Invalid
-	// TODO r = walwrite(&c->srv->wal, j);
-	//  walmaint(&c->srv->wal);
+	r := core.WalWrite(&c.Srv.Wal, j)
+	core.WalMain(&c.Srv.Wal)
 	core.JobFree(j)
-	if j == nil {
-		replyMsg(c, constant.MsgInternalError)
+	if !r {
+		replyErr(c, constant.MsgInternalError)
 		return
 	}
 	replyMsg(c, constant.MsgDeleted)
@@ -476,13 +476,12 @@ func dispatchOpRelease(c *model.Coon) {
 	}
 
 	if delay > 0 {
-		// 更新binlog
-		// int z = walresvupdate(&c->srv->wal);
-		// if (!z) {
-		// 	reply_serr(c, MSG_OUT_OF_MEMORY);
-		// 	return;
-		// }
-		// j->walresv += z;
+		z := core.WalResvUpdate(&c.Srv.Wal)
+		if z <= 0 {
+			replyErr(c, constant.MsgOutOfMemory)
+			return
+		}
+		j.WalResv += z
 	}
 
 	j.R.Pri = uint32(pri)
@@ -855,11 +854,11 @@ func kickDelayedJobs(s *model.Server, t *model.Tube, n uint) uint {
 
 // kickBuriedJob
 func kickBuriedJob(s *model.Server, j *model.Job) bool {
-	// TODO wal
-	// z = walresvupdate(&s- > wal)
-	// if !z
-	// return 0
-	// j- > walresv += z
+	z := core.WalResvUpdate(&s.Wal)
+	if z <= 0 {
+		return false
+	}
+	j.WalResv += z
 
 	removeBuriedJob(j)
 
@@ -876,11 +875,11 @@ func kickBuriedJob(s *model.Server, j *model.Job) bool {
 
 // kickDelayedJob
 func kickDelayedJob(s *model.Server, j *model.Job) bool {
-	// TODO kickDelayedJob
-	// z = walresvupdate(&s->wal);
-	// if (!z)
-	// return 0;
-	// j->walresv += z;
+	z := core.WalResvUpdate(&s.Wal)
+	if z <= 0 {
+		return false
+	}
+	j.WalResv += z
 
 	j.Tube.Delay.Remove(j.HeapIndex)
 	j.R.KickCt++
@@ -1196,7 +1195,12 @@ func enqueueJob(s *model.Server, j *model.Job, delay int64, updateStore bool) in
 	}
 
 	if updateStore {
-		// TODO 写入binlog
+		// job写入binlog
+		if !core.WalWrite(&s.Wal, j) {
+			return 0
+		}
+		// 文件拆分&文件fsync
+		core.WalMain(&s.Wal)
 	}
 	processQueue()
 	return 1
@@ -1225,13 +1229,13 @@ func uptime() int64 {
 func fmtStats(s *model.Server) string {
 	var whead, wcur int
 
-	// if (s->wal.head) {
-	// 	whead = s->wal.head->seq;
-	// }
-	//
-	// if (s->wal.cur) {
-	// 	wcur = s->wal.cur->seq;
-	// }
+	if s.Wal.Head != nil {
+		whead = s.Wal.Head.Seq
+	}
+
+	if s.Wal.Cur != nil {
+		wcur = s.Wal.Cur.Seq
+	}
 
 	ru := &syscall.Rusage{}
 	syscall.Getrusage(syscall.RUSAGE_SELF, ru)
@@ -1266,7 +1270,7 @@ func fmtStats(s *model.Server) string {
 		utils.OpCt[constant.OpPauseTube],
 		utils.TimeoutCt,
 		utils.GlobalState.TotalJobsCt,
-		*utils.MaxJobSize,
+		utils.MaxJobSize,
 		core.GetTubes().Len(),
 		utils.CurConnCt,
 		utils.CurProducerCt,
@@ -1280,11 +1284,11 @@ func fmtStats(s *model.Server) string {
 		ru.Stime.Sec,
 		ru.Stime.Usec,
 		uptime(),
-		whead, // TODO wait for wal implement
-		wcur,  // TODO wait for wal implement
-		0,     // TODO s- > wal.nmig, wait for wal implement
-		0,     // TODO s- > wal.nrec, wait for wal implement
-		0,     // TODO s- > wal.filesize, wait for wal implement
+		whead,
+		wcur,
+		s.Wal.Nmig,
+		s.Wal.Nrec,
+		s.Wal.FileSize,
 		fmt.Sprint(utils.DrainMode == 1),
 		utils.InstanceHex,
 		utils.UtsName.Nodename,
@@ -1370,4 +1374,36 @@ func doListTubes(c *model.Coon, l *structure.Ms) {
 	c.OutJob.Body = append(c.OutJob.Body, "\r\n"...)
 	c.OutJobSent = 0
 	replyLine(c, constant.StateSendJob, "OK %d\r\n", respZ-2)
+}
+
+// protReplay
+func protReplay(s *model.Server, list *model.Job) bool {
+
+	var nj *model.Job
+	for j := list.Next; j != list; j = nj {
+		nj = j.Next
+		core.JobListRemove(j)
+		z := core.WalResvUpdate(&s.Wal)
+		if z <= 0 {
+			utils.Log.Warnln("failed to reserve space")
+			return false
+		}
+
+		var delay int64
+		switch j.R.State {
+		case constant.Buried:
+			core.BuryJob(s, j, false)
+		case constant.Delayed:
+			t := time.Now().UnixNano()
+			if t < j.R.DeadlineAt {
+				delay = j.R.DeadlineAt - t
+			}
+			fallthrough
+		default:
+			if enqueueJob(s, j, delay, false) < 1 {
+				utils.Log.Warnf("error recovering job %d", j.R.ID)
+			}
+		}
+	}
+	return true
 }

@@ -13,6 +13,11 @@
 // limitations under the License.
 package model
 
+import (
+	"unsafe"
+)
+
+
 type JobRec struct {
 	ID       uint64
 	Pri      uint32
@@ -34,6 +39,8 @@ type JobRec struct {
 	KickCt    uint32
 	State     int32
 }
+
+var JobRecSize = int64(unsafe.Sizeof(JobRec{}))
 
 type Job struct {
 	// persistent fields; these get written to the wal

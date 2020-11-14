@@ -13,12 +13,34 @@
 // limitations under the License.
 package model
 
+import (
+	"os"
+	"unsafe"
+)
+
+type JobRec5 struct {
+	ID         uint64
+	Pri        uint32
+	Delay      uint64
+	TTR        uint64
+	BodySize   int32
+	CreatedAt  uint64
+	DeadlineAt uint64
+	ReserveCt  uint64
+	TimeoutCt  uint32
+	ReleaseCt  uint32
+	BuryCt     uint32
+	KickCt     uint32
+	State      byte
+	Pad        [1]byte
+}
+
 type File struct {
 	Next    *File
 	Refs    uint
 	Seq     int
 	IsWOpen int
-	Fd      int
+	F       *os.File
 	Free    int
 	Resv    int
 	Path    string
@@ -26,3 +48,5 @@ type File struct {
 	W       *Wal
 	JobList Job
 }
+
+var JobRec5Size = int64(unsafe.Offsetof(JobRec5{}.Pad))

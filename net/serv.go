@@ -93,6 +93,23 @@ func Start(s *model.Server) error {
 	}
 }
 
+// srvAcquireWal
+func SrvAcquireWal(s *model.Server) {
+	if s.Wal.Use {
+		if !core.WalDirLock(&s.Wal) {
+			utils.Log.Panicf("failed to lock wal dir %s", s.Wal.Dir)
+		}
+
+		list := &model.Job{}
+		list.Prev = list
+		list.Next = list
+		core.WalInit(&s.Wal, list)
+		if !protReplay(s, list) {
+			utils.Log.Panicln("failed to replay log")
+		}
+	}
+}
+
 // makeServerListener 根据配置创建unix或tcp listener
 func makeServerListener(addr string, port int) (net.Listener, error) {
 	if strings.HasPrefix(addr, "unix:") {
@@ -379,11 +396,11 @@ func enqueueInComingJob(c *model.Coon) {
 		return
 	}
 
-	// TODO  j->walresv = walresvput(&c->srv->wal, j);
-	// if j.WalResv == 0 {
-	// 	replyErr(c, MsgOutOfMemory)
-	// 	return
-	// }
+	j.WalResv = core.WalResvPut(&c.Srv.Wal, j)
+	if j.WalResv == 0 {
+		replyErr(c, constant.MsgOutOfMemory)
+		return
+	}
 
 	r := enqueueJob(c.Srv, j, j.R.Delay, true)
 	if r < 0 {
