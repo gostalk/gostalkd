@@ -21,8 +21,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/sjatsh/beanstalk-go/model"
 	"github.com/sjatsh/beanstalk-go/net"
 	"github.com/sjatsh/beanstalk-go/utils"
@@ -37,7 +35,6 @@ func init() {
 func main() {
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
-	logrus.SetFormatter(&logrus.JSONFormatter{})
 
 	// new server object
 	srv, err := net.NewServer(
@@ -46,7 +43,7 @@ func main() {
 		model.WithUser(*utils.User),
 	)
 	if err != nil {
-		logrus.Panicln(err)
+		utils.Log.Panicln(err)
 	}
 
 	// parse options
@@ -56,7 +53,7 @@ func main() {
 	setSigHandlers()
 
 	if net.Start(srv) != nil {
-		logrus.Panicln(err)
+		utils.Log.Panicln(err)
 	}
 }
 
@@ -78,6 +75,7 @@ func setSigHandlers() {
 func enterDrainMode(ch chan os.Signal) {
 	go func() {
 		<-ch
+		utils.Log.Infoln("get SIGUSR1 sig")
 		utils.DrainMode = 1
 	}()
 }
@@ -85,6 +83,7 @@ func enterDrainMode(ch chan os.Signal) {
 func handleSigtermPid1(ch chan os.Signal) {
 	go func() {
 		<-ch
+		utils.Log.Infoln("get SIGTERM sig")
 		os.Exit(143)
 	}()
 }

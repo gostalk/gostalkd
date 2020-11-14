@@ -21,6 +21,7 @@ import (
 	"unsafe"
 
 	"github.com/sjatsh/beanstalk-go/model"
+	"github.com/sjatsh/beanstalk-go/utils"
 )
 
 const (
@@ -78,6 +79,12 @@ func sockWant(s *model.Socket, rw byte) error {
 }
 
 func sockNext(s **model.Socket, timeout time.Duration) (byte, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			utils.Log.Errorf("socket next panic error:%s\n", err)
+		}
+	}()
+
 	ts := syscall.Timespec{}
 	evs := make([]syscall.Kevent_t, 1)
 

@@ -45,7 +45,7 @@ type Coon struct {
 	TickPos        int
 	InCoons        int
 	SoonestJob     *Job // 快到期job
-	Rw             byte // 连接类型（'r':读 'w':写）
+	Rw             byte // 连接类型（'r':读 'w':写, '0':从epoll踢出）
 	PendingTimeout int  // 连接阻塞超时时间
 	HalfClosed     bool // 连接断开
 

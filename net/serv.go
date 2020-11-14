@@ -84,7 +84,7 @@ func Start(s *model.Server) error {
 		period := protTick(s)
 		rw, err := sockNext(&sock, period)
 		if err != nil {
-			logrus.Error(err)
+			utils.Log.Error(err)
 			continue
 		}
 		if rw > 0 && sock != nil {

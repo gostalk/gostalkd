@@ -38,6 +38,7 @@ var (
 	EachWriteAheadLogSize = flag.Int("s", constant.DefaultEachWriteAheadLogSize, "set the size of each write-ahead log file (default is 10485760);will be rounded up to a multiple of 4096 bytes") // each write ahead log size
 	ShowVersion           = flag.Bool("v", false, "show version information")                                                                                                                      // show version
 	Verbosity             = flag.Bool("V", false, "increase verbosity")                                                                                                                            // increase verbosity
+	LogLevel              = flag.String("L", "warn", "set the log level, switch one in (panic, fatal, error, warn, waring, info, debug, trace)")
 )
 
 func OptParse(s *model.Server) {
@@ -46,8 +47,14 @@ func OptParse(s *model.Server) {
 		os.Exit(0)
 	}
 
+	logLevel, err := logrus.ParseLevel(*LogLevel)
+	if err != nil {
+		panic(err)
+	}
+	Log.SetLevel(logLevel)
+
 	if *MaxJobSize > constant.JobDataSizeLimitMax {
-		logrus.Warnf("maximum job size was set to %d", constant.JobDataSizeLimitMax)
+		Log.Warnf("maximum job size was set to %d", constant.JobDataSizeLimitMax)
 		*MaxJobSize = constant.JobDataSizeLimitMax
 	}
 
@@ -72,14 +79,14 @@ func OptParse(s *model.Server) {
 func su(user string) {
 	usr, err := osUser.Lookup(user)
 	if err != nil {
-		logrus.Panicln(err)
+		Log.Panicln(err)
 	}
 	gid, _ := strconv.ParseInt(usr.Gid, 10, 64)
 	uid, _ := strconv.ParseInt(usr.Uid, 10, 64)
 	if err := syscall.Setgid(int(gid)); err != nil {
-		logrus.Panicln(err)
+		Log.Panicln(err)
 	}
 	if err := syscall.Setuid(int(uid)); err != nil {
-		logrus.Panicln(err)
+		Log.Panicln(err)
 	}
 }
