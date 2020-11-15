@@ -23,22 +23,22 @@ purpose
 
 using go get install
 ```bash
-GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/sjatsh/beanstalk-go
+GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/sjatsh/beanstalkd-go
 ```
 
 using make you self
 ```bash
 make
-./beanstalk-go
+./beanstalkd-go
 ```
 view support commands
 
 ```bash
-./beanstalk-go -h
+./beanstalkd-go -h
 ```
 
 ```bash
-Usage of ./beanstalk-go:
+Usage of ./beanstalkd-go:
   -F    never fsync
   -L string
         set the log level, switch one in (panic, fatal, error, warn, waring, info, debug, trace) (default "warn")

@@ -22,23 +22,23 @@
 
 使用go get安装
 ```bash
-GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/sjatsh/beanstalk-go
+GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/sjatsh/beanstalkd-go
 ```
 
 手动编译
 ```bash
 make
-./beanstalk-go
+./beanstalkd-go
 ```
 
 查看支持命令
 
 ```bash
-./beanstalk-go -h
+./beanstalkd-go -h
 ```
 
 ```bash
-Usage of ./beanstalk-go:
+Usage of ./beanstalkd-go:
   -F    never fsync
   -L string
         set the log level, switch one in (panic, fatal, error, warn, waring, info, debug, trace) (default "warn")
