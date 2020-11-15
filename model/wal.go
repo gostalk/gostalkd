@@ -14,19 +14,19 @@
 package model
 
 type Wal struct {
-	FileSize int
+	FileSize int64
 	Use      bool
 	Dir      string
 	Head     *File
 	Cur      *File
 	Tail     *File
-	NFile    int
-	Next     int
+	NFile    int64
+	Next     int64
 	Resv     int64
 	Alive    int64
 	Nmig     int64
 	Nrec     int64
-	WantSync int
+	WantSync bool
 	SyncRate int64
 	LastSync int64
 }

@@ -29,15 +29,15 @@ import (
 
 var (
 	Port                  = flag.Int("p", constant.DefaultPort, "listen on port (default is 11400)")
-	BingLogDir            = flag.String("b", "", "write-ahead log directory")                                                                                                         // binlog dir
-	FsyncMs               = flag.Int64("f", constant.DefaultFsyncMs, "fsync at most once every MS milliseconds (default is 50ms);use -f0 for \"always fsync\"")                       // fsync binlog ms
-	FsyncNever            = flag.Bool("F", true, "never fsync")                                                                                                                       // never fsync
-	ListenAddr            = flag.String("l", constant.DefaultListenAddr, "listen on address (default is 0.0.0.0)")                                                                    // server listen addr
-	User                  = flag.String("u", "", "become user and group")                                                                                                             // become user and group
-	MaxJobSize            = flag.Int64("z", constant.DefaultMaxJobSize, "set the maximum job size in bytes (default is 65535);max allowed is 1073741824 bytes")                       // max job size
-	EachWriteAheadLogSize = flag.Int("s", constant.DefaultFileSize, "set the size of each write-ahead log file (default is 10485760);will be rounded up to a multiple of 4096 bytes") // each write ahead log size
-	ShowVersion           = flag.Bool("v", false, "show version information")                                                                                                         // show version
-	Verbosity             = flag.Bool("V", false, "increase verbosity")                                                                                                               // increase verbosity
+	BingLogDir            = flag.String("b", "", "write-ahead log directory")                                                                                                           // binlog dir
+	FsyncMs               = flag.Int64("f", constant.DefaultFsyncMs, "fsync at most once every MS milliseconds (default is 50ms);use -f0 for \"always fsync\"")                         // fsync binlog ms
+	FsyncNever            = flag.Bool("F", true, "never fsync")                                                                                                                         // never fsync
+	ListenAddr            = flag.String("l", constant.DefaultListenAddr, "listen on address (default is 0.0.0.0)")                                                                      // server listen addr
+	User                  = flag.String("u", "", "become user and group")                                                                                                               // become user and group
+	MaxJobSize            = flag.Int64("z", constant.DefaultMaxJobSize, "set the maximum job size in bytes (default is 65535);max allowed is 1073741824 bytes")                         // max job size
+	EachWriteAheadLogSize = flag.Int64("s", constant.DefaultFileSize, "set the size of each write-ahead log file (default is 10485760);will be rounded up to a multiple of 4096 bytes") // each write ahead log size
+	ShowVersion           = flag.Bool("v", false, "show version information")                                                                                                           // show version
+	Verbosity             = flag.Bool("V", false, "increase verbosity")                                                                                                                 // increase verbosity
 	LogLevel              = flag.String("L", "warn", "set the log level, switch one in (panic, fatal, error, warn, waring, info, debug, trace)")
 )
 
@@ -60,10 +60,10 @@ func OptParse(s *model.Server) {
 
 	s.Wal.FileSize = *EachWriteAheadLogSize
 	s.Wal.SyncRate = *FsyncMs * 1000000
-	s.Wal.WantSync = 1
+	s.Wal.WantSync = true
 
 	if *FsyncNever {
-		s.Wal.WantSync = 0
+		s.Wal.WantSync = false
 	}
 
 	if *User != "" {

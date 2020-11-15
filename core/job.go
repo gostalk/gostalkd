@@ -41,7 +41,7 @@ func NewJob(bodySize ...int64) *model.Job {
 }
 
 // JobState 通过state id获取job详细状态
-func JobState(state int32) string {
+func JobState(state byte) string {
 	switch state {
 	case constant.Ready:
 		return "ready"

@@ -27,16 +27,16 @@ import (
 
 var FAlloc = (FAllocH)(rawFAlloc)
 
-type FAllocH func(*os.File, int) bool
+type FAllocH func(*os.File, int64) bool
 
 // rawFAlloc
-func rawFAlloc(f *os.File, l int) bool {
+func rawFAlloc(f *os.File, l int64) bool {
 	var err error
 	var w int
 	buf := make([]byte, 4096)
-	for i := 0; i < l; i += w {
+	for i := 0; int64(i) < l; i += w {
 		w, err = f.Write(buf)
-		if w == -1 || err != nil {
+		if err != nil {
 			utils.Log.Errorln(err)
 			return false
 		}
@@ -179,9 +179,7 @@ func ReadRec(f *model.File, l *model.Job) error {
 	case constant.Reserved:
 		jr.State = constant.Ready
 		fallthrough
-	case constant.Ready:
-		fallthrough
-	case constant.Buried:
+	case constant.Ready, constant.Buried:
 		fallthrough
 	case constant.Delayed:
 		if j == nil {
@@ -197,6 +195,13 @@ func ReadRec(f *model.File, l *model.Job) error {
 			j = MakeJobWithID(jr.Pri, jr.Delay, jr.TTR, jr.BodySize, t, jr.ID)
 			JobListRest(j)
 			j.R.CreateAt = jr.CreateAt
+
+			t.Stat.TotalJobsCt++
+			utils.GlobalState.TotalJobsCt++
+			if jr.State == constant.Buried {
+				t.Stat.BuriedCt++
+				utils.GlobalState.BuriedCt++
+			}
 		}
 
 		j.R = jr
@@ -218,7 +223,7 @@ func ReadRec(f *model.File, l *model.Job) error {
 			FileRmJob(j.File, j)
 			FileAddJob(f, j)
 		}
-		j.WalUsed += int(size)
+		j.WalUsed += size
 		f.W.Alive += size
 		return nil
 	case constant.Invalid:
@@ -290,9 +295,9 @@ func ReadRec5(f *model.File, l *model.Job) error {
 		return nil
 	}
 
-	switch int32(jr.State) {
+	switch jr.State {
 	case constant.Reserved:
-		jr.State = byte(constant.Ready)
+		jr.State = constant.Ready
 		fallthrough
 	case constant.Ready:
 		fallthrough
@@ -323,7 +328,7 @@ func ReadRec5(f *model.File, l *model.Job) error {
 		j.R.ReleaseCt = jr.ReleaseCt
 		j.R.BuryCt = jr.BuryCt
 		j.R.KickCt = jr.KickCt
-		j.R.State = int32(jr.State)
+		j.R.State = jr.State
 		JobListInsert(l, j)
 
 		if nameLen > 0 {
@@ -343,7 +348,7 @@ func ReadRec5(f *model.File, l *model.Job) error {
 			FileRmJob(j.File, j)
 			FileAddJob(f, j)
 		}
-		j.WalUsed += int(size)
+		j.WalUsed += size
 		f.W.Alive += size
 		return nil
 	case constant.Invalid:
@@ -395,9 +400,9 @@ func fileWOpen(f *model.File) {
 	}
 
 	f.F = file
-	f.IsWOpen = 1
+	f.IsWOpen = true
 	fileIncRef(f)
-	f.Free = f.W.FileSize - binary.Size(constant.WalVer)
+	f.Free = f.W.FileSize - int64(binary.Size(constant.WalVer))
 	f.Resv = 0
 }
 
@@ -431,12 +436,12 @@ func fileWrite(f *model.File, j *model.Job, obj interface{}) bool {
 	if err := binary.Write(f.F, binary.LittleEndian, obj); err != nil {
 		return false
 	}
-	l := binary.Size(obj)
-	f.W.Resv -= int64(l)
+	l := int64(binary.Size(obj))
+	f.W.Resv -= l
 	f.Resv -= l
 	j.WalResv -= l
 	j.WalUsed += l
-	f.W.Alive += int64(l)
+	f.W.Alive += l
 	return true
 }
 
@@ -468,7 +473,7 @@ func fileWClose(f *model.File) {
 	if f == nil {
 		return
 	}
-	if f.IsWOpen <= 0 {
+	if !f.IsWOpen {
 		return
 	}
 	if f.Free > 0 {
@@ -479,11 +484,11 @@ func fileWClose(f *model.File) {
 	if err := f.F.Close(); err != nil {
 		utils.Log.Warnf("file close %s", err)
 	}
-	f.IsWOpen = 0
+	f.IsWOpen = false
 	fileDecRef(f)
 }
 
-func fileInit(f *model.File, w *model.Wal, n int) bool {
+func fileInit(f *model.File, w *model.Wal, n int64) bool {
 	f.W = w
 	f.Seq = n
 	f.Path = fmt.Sprintf("%s/binlog.%d", w.Dir, n)

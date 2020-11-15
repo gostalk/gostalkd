@@ -15,7 +15,6 @@ package model
 
 import (
 	"os"
-	"unsafe"
 )
 
 type JobRec5 struct {
@@ -38,15 +37,13 @@ type JobRec5 struct {
 type File struct {
 	Next    *File
 	Refs    uint
-	Seq     int
-	IsWOpen int
+	Seq     int64
+	IsWOpen bool
 	F       *os.File
-	Free    int
-	Resv    int
+	Free    int64
+	Resv    int64
 	Path    string
 
 	W       *Wal
 	JobList Job
 }
-
-var JobRec5Size = int64(unsafe.Offsetof(JobRec5{}.Pad))

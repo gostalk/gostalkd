@@ -1227,7 +1227,7 @@ func uptime() int64 {
 
 // fmtStats
 func fmtStats(s *model.Server) string {
-	var whead, wcur int
+	var whead, wcur int64
 
 	if s.Wal.Head != nil {
 		whead = s.Wal.Head.Seq
@@ -1299,7 +1299,7 @@ func fmtStats(s *model.Server) string {
 
 // fmtStatsJob
 func fmtStatsJob(j *model.Job) string {
-	var file int
+	var file int64
 	var timeLeft int64
 	t := time.Now().UnixNano()
 

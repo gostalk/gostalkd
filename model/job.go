@@ -13,11 +13,6 @@
 // limitations under the License.
 package model
 
-import (
-	"unsafe"
-)
-
-
 type JobRec struct {
 	ID       uint64
 	Pri      uint32
@@ -37,10 +32,8 @@ type JobRec struct {
 	ReleaseCt uint32
 	BuryCt    uint32
 	KickCt    uint32
-	State     int32
+	State     byte
 }
-
-var JobRecSize = int64(unsafe.Sizeof(JobRec{}))
 
 type Job struct {
 	// persistent fields; these get written to the wal
@@ -57,8 +50,8 @@ type Job struct {
 	FPre, FNext *Job
 	Reservoir   *Coon
 
-	WalResv int
-	WalUsed int
+	WalResv int64
+	WalUsed int64
 
 	Body []byte
 }

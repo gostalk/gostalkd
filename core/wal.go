@@ -28,7 +28,7 @@ import (
 
 var Reserve = (ReserveH)(reserve)
 
-type ReserveH func(w *model.Wal, n int) int
+type ReserveH func(w *model.Wal, n int64) int64
 
 // WalInit
 func WalInit(w *model.Wal, list *model.Job) {
@@ -47,9 +47,9 @@ func WalInit(w *model.Wal, list *model.Job) {
 // returns the minimum number.
 // If no files are found, sets w->next to 1 and
 // returns a large number.
-func walScanDir(w *model.Wal) int {
+func walScanDir(w *model.Wal) int64 {
 	var base = "binlog."
-	var min, max = 1 << 30, 0
+	var min, max int64 = 1 << 30, 0
 
 	f, err := os.Open(w.Dir)
 	if os.IsNotExist(err) {
@@ -70,7 +70,7 @@ func walScanDir(w *model.Wal) int {
 		if err != nil {
 			return err
 		}
-		n := int(idx)
+		n := idx
 		if n > max {
 			max = n
 		}
@@ -100,14 +100,12 @@ func walGc(w *model.Wal) {
 			utils.Log.Warnln(err)
 			continue
 		}
-		f.Path = ""
 		f = nil
 	}
 }
 
 func useNext(w *model.Wal) bool {
-	var f *model.File
-	f = w.Cur
+	f := w.Cur
 	if f.Next == nil {
 		utils.Log.Warnln("there is no next wal file")
 		return false
@@ -120,18 +118,18 @@ func useNext(w *model.Wal) bool {
 func ratio(w *model.Wal) int64 {
 	var n, d int64
 	d = w.Alive + w.Resv
-	n = int64(w.NFile)*int64(w.FileSize) - d
+	n = int64(w.NFile*w.FileSize) - d
 	if d <= 0 {
 		return 0
 	}
 	return n / d
 }
 
-func walResvMigrate(w *model.Wal, j *model.Job) int {
-	z := binary.Size(int64(1))
-	z += len(j.Tube.Name)
-	z += binary.Size(model.JobRec{})
-	z += int(j.R.BodySize)
+func walResvMigrate(w *model.Wal, j *model.Job) int64 {
+	z := int64(binary.Size(int64(1)))
+	z += int64(len(j.Tube.Name))
+	z += int64(binary.Size(model.JobRec{}))
+	z += j.R.BodySize
 	return reserve(w, z)
 }
 
@@ -164,7 +162,7 @@ func walCompact(w *model.Wal) {
 
 func WalSync(w *model.Wal) {
 	now := time.Now().UnixNano()
-	if w.WantSync <= 0 || now < w.LastSync+w.SyncRate {
+	if !w.WantSync || now < w.LastSync+w.SyncRate {
 		return
 	}
 	if err := w.Cur.F.Sync(); err != nil {
@@ -209,8 +207,7 @@ func makeNextFile(w *model.Wal) bool {
 	}
 
 	fileWOpen(f)
-	if f.IsWOpen == 0 {
-		f.Path = ""
+	if !f.IsWOpen {
 		f = nil
 		return false
 	}
@@ -220,14 +217,14 @@ func makeNextFile(w *model.Wal) bool {
 	return true
 }
 
-func moveResv(to *model.File, from *model.File, n int) {
+func moveResv(to *model.File, from *model.File, n int64) {
 	from.Resv -= n
 	from.Free += n
 	to.Resv += n
 	to.Free -= n
 }
 
-func needFree(w *model.Wal, n int) bool {
+func needFree(w *model.Wal, n int64) bool {
 	if w.Tail.Free >= n {
 		return false
 	}
@@ -246,8 +243,8 @@ func needFree(w *model.Wal, n int) bool {
 // We might have to allocate a new file.
 // Returns 1 on success, otherwise 0. If there was a failure,
 // w->tail is not updated.
-func balanceRest(w *model.Wal, b *model.File, n int) int {
-	z := binary.Size(int64(1)) + binary.Size(model.JobRec{})
+func balanceRest(w *model.Wal, b *model.File, n int64) int64 {
+	z := int64(binary.Size(int64(1)) + binary.Size(model.JobRec{}))
 	if b == nil {
 		return 1
 	}
@@ -282,7 +279,7 @@ func balanceRest(w *model.Wal, b *model.File, n int) int {
 // We might have to allocate a new file.
 // Returns 1 on success, otherwise 0. If there was a failure,
 // w->tail is not updated.
-func balance(w *model.Wal, n int) int {
+func balance(w *model.Wal, n int64) int64 {
 	// Invariant 1
 	// (this loop will run at most once)
 	for ; w.Cur.Resv < n; {
@@ -298,7 +295,7 @@ func balance(w *model.Wal, n int) int {
 	return balanceRest(w, w.Cur, n)
 }
 
-func reserve(w *model.Wal, n int) int {
+func reserve(w *model.Wal, n int64) int64 {
 	if !w.Use {
 		return 1
 	}
@@ -327,24 +324,23 @@ func reserve(w *model.Wal, n int) int {
 }
 
 // WalResvPut
-func WalResvPut(w *model.Wal, j *model.Job) int {
-	var z int
-	z += binary.Size(int64(1))
-	z += len(j.Tube.Name)
-	z += binary.Size(model.JobRec{})
-	z += int(j.R.BodySize)
+func WalResvPut(w *model.Wal, j *model.Job) int64 {
+	z := int64(binary.Size(int64(1)))
+	z += int64(len(j.Tube.Name))
+	z += int64(binary.Size(model.JobRec{}))
+	z += j.R.BodySize
 
-	z += binary.Size(int64(1))
-	z += binary.Size(model.JobRec{})
+	z += int64(binary.Size(int64(1)))
+	z += int64(binary.Size(model.JobRec{}))
 
 	return reserve(w, z)
 }
 
 // WalResvUpdate
-func WalResvUpdate(w *model.Wal) int {
-	var z int
-	z += binary.Size(int64(1))
-	z += binary.Size(model.JobRec{})
+func WalResvUpdate(w *model.Wal) int64 {
+	var z int64
+	z += int64(binary.Size(int64(1)))
+	z += int64(binary.Size(model.JobRec{}))
 	return reserve(w, z)
 }
 
@@ -376,7 +372,7 @@ func WalDirLock(w *model.Wal) bool {
 }
 
 // walRead
-func walRead(w *model.Wal, list *model.Job, min int) {
+func walRead(w *model.Wal, list *model.Job, min int64) {
 	for i := min; i < w.Next; i++ {
 		f := &model.File{}
 		if !fileInit(f, w, i) {

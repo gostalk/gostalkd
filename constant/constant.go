@@ -40,7 +40,7 @@ const (
 
 // job相关状态
 const (
-	Invalid int32 = iota
+	Invalid byte = iota
 	Ready
 	Reserved
 	Buried
