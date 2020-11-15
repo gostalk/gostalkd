@@ -20,7 +20,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/sjatsh/beanstalk-go/model"
+	"github.com/sjatsh/beanstalkd-go/model"
 )
 
 var epfd int

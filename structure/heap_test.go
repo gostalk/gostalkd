@@ -16,7 +16,7 @@ package structure_test
 import (
 	"testing"
 
-	"github.com/sjatsh/beanstalk-go/structure"
+	"github.com/sjatsh/beanstalkd-go/structure"
 )
 
 type TestHeapValue struct {

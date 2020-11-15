@@ -1,4 +1,4 @@
-module github.com/sjatsh/beanstalk-go
+module github.com/sjatsh/beanstalkd-go
 
 go 1.15
 

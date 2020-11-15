@@ -22,8 +22,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sjatsh/beanstalk-go/model"
-	"github.com/sjatsh/beanstalk-go/utils"
+	"github.com/sjatsh/beanstalkd-go/model"
+	"github.com/sjatsh/beanstalkd-go/utils"
 )
 
 // WalInit

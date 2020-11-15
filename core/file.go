@@ -20,9 +20,9 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/sjatsh/beanstalk-go/constant"
-	"github.com/sjatsh/beanstalk-go/model"
-	"github.com/sjatsh/beanstalk-go/utils"
+	"github.com/sjatsh/beanstalkd-go/constant"
+	"github.com/sjatsh/beanstalkd-go/model"
+	"github.com/sjatsh/beanstalkd-go/utils"
 )
 
 var FAlloc = (FAllocH)(rawFAlloc)

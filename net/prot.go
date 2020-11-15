@@ -23,11 +23,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/sjatsh/beanstalk-go/constant"
-	"github.com/sjatsh/beanstalk-go/core"
-	"github.com/sjatsh/beanstalk-go/model"
-	"github.com/sjatsh/beanstalk-go/structure"
-	"github.com/sjatsh/beanstalk-go/utils"
+	"github.com/sjatsh/beanstalkd-go/constant"
+	"github.com/sjatsh/beanstalkd-go/core"
+	"github.com/sjatsh/beanstalkd-go/model"
+	"github.com/sjatsh/beanstalkd-go/structure"
+	"github.com/sjatsh/beanstalkd-go/utils"
 )
 
 var epollQ *model.Coon

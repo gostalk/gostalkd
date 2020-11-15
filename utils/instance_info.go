@@ -19,7 +19,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/sjatsh/beanstalk-go/constant"
+	"github.com/sjatsh/beanstalkd-go/constant"
 )
 
 var (

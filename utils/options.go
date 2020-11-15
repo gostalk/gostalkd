@@ -23,8 +23,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/sjatsh/beanstalk-go/constant"
-	"github.com/sjatsh/beanstalk-go/model"
+	"github.com/sjatsh/beanstalkd-go/constant"
+	"github.com/sjatsh/beanstalkd-go/model"
 )
 
 var (

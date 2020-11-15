@@ -21,10 +21,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sjatsh/beanstalk-go/core"
-	"github.com/sjatsh/beanstalk-go/model"
-	"github.com/sjatsh/beanstalk-go/net"
-	"github.com/sjatsh/beanstalk-go/utils"
+	"github.com/sjatsh/beanstalkd-go/core"
+	"github.com/sjatsh/beanstalkd-go/model"
+	"github.com/sjatsh/beanstalkd-go/net"
+	"github.com/sjatsh/beanstalkd-go/utils"
 )
 
 var version string
