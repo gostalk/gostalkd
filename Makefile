@@ -18,6 +18,8 @@ uninstall:
 	rm -rf ${INSTALL_DIR}${NAME}
 	rm -rf ${LOG_DIR}
 run:
-	${INSTALL_DIR}${NAME} -b ${LOG_DIR}
+	./${NAME} -b log
+test:
+	go test ./... -race -covermode=atomic
 clean:
 	rm -rf ${NAME}
