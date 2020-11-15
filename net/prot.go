@@ -1073,48 +1073,45 @@ func reply(c *model.Coon, line []byte, len int64, state int) {
 		return
 	}
 
-	log := utils.Log.WithFields(logrus.Fields{
-		"cmd":       string(c.Cmd),
-		"cmd_len":   c.CmdLen,
-		"cmd_read":  c.CmdRead,
-		"reply":     string(line),
-		"reply_len": len,
-		"state":     state,
-	})
-	if c.Use != nil {
-		log = log.WithFields(logrus.Fields{
-			"use": map[string]interface{}{
-				"name":        c.Use.Name,
-				"stat":        c.Use.Stat,
-				"pause":       c.Use.Pause,
-				"unpause_at":  c.Use.UnpauseAt,
-				"using_ct":    c.Use.UsingCt,
-				"watching_ct": c.Use.WatchingCt,
-			},
-		})
-	}
-	if c.InJob != nil {
-		log = log.WithFields(logrus.Fields{
-			"in_job":      c.InJob.R,
-			"in_job_body": string(c.InJob.Body),
-			"in_job_read": c.InJobRead,
-		})
-	}
-	if c.OutJob != nil {
-		log = log.WithFields(logrus.Fields{
-			"out_job":      c.OutJob.R,
-			"out_job_body": string(c.OutJob.Body),
-			"out_job_sent": c.OutJobSent,
-		})
-	}
-
 	l := string(line)
 	if l == string(constant.MsgBadFormat) || l == string(constant.MsgInternalError) ||
 		l == string(constant.MsgNotFound) || l == string(constant.MsgUnknownCommand) ||
 		l == string(constant.MsgTimedOut) {
+		log := utils.Log.WithFields(logrus.Fields{
+			"cmd":       string(c.Cmd),
+			"cmd_len":   c.CmdLen,
+			"cmd_read":  c.CmdRead,
+			"reply":     string(line),
+			"reply_len": len,
+			"state":     state,
+		})
+		if c.Use != nil {
+			log = log.WithFields(logrus.Fields{
+				"use": map[string]interface{}{
+					"name":        c.Use.Name,
+					"stat":        c.Use.Stat,
+					"pause":       c.Use.Pause,
+					"unpause_at":  c.Use.UnpauseAt,
+					"using_ct":    c.Use.UsingCt,
+					"watching_ct": c.Use.WatchingCt,
+				},
+			})
+		}
+		if c.InJob != nil {
+			log = log.WithFields(logrus.Fields{
+				"in_job":      c.InJob.R,
+				"in_job_body": string(c.InJob.Body),
+				"in_job_read": c.InJobRead,
+			})
+		}
+		if c.OutJob != nil {
+			log = log.WithFields(logrus.Fields{
+				"out_job":      c.OutJob.R,
+				"out_job_body": string(c.OutJob.Body),
+				"out_job_sent": c.OutJobSent,
+			})
+		}
 		log.Warnln(l)
-	} else {
-		log.Debugln(l)
 	}
 
 	EpollQAdd(c, 'w')
