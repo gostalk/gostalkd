@@ -23,3 +23,4 @@ test:
 	go test ./... -race -covermode=atomic
 clean:
 	rm -rf ${NAME}
+	rm -rf log
