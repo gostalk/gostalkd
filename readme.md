@@ -23,7 +23,7 @@
 使用go get安装
 
 ```bash
-go get -u -v github.com/sjatsh/beanstalkd-go
+GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/sjatsh/beanstalkd-go
 ```
 
 手动编译
