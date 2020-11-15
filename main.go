@@ -65,24 +65,40 @@ func main() {
 func setSigHandlers() {
 	sigpipe := make(chan os.Signal, 1)
 	signal.Notify(sigpipe, syscall.SIGPIPE)
+	sigpipeHandle(sigpipe)
 
-	sigusr := make(chan os.Signal)
-	signal.Notify(sigusr, syscall.SIGUSR1)
-	enterDrainMode(sigusr)
+	sigUsr1 := make(chan os.Signal, 1)
+	signal.Notify(sigUsr1, syscall.SIGUSR1)
+	enterDrainMode(sigUsr1)
 
-	if os.Getpid() == 1 {
-		sigterm := make(chan os.Signal)
-		signal.Notify(sigusr, syscall.SIGTERM)
-		handleSigtermPid1(sigterm)
-	}
+	sigIntTerm := make(chan os.Signal, 2)
+	signal.Notify(sigIntTerm, syscall.SIGINT, syscall.SIGTERM)
+	sigIntTermHandle(sigIntTerm)
+}
+
+func sigIntTermHandle(ch chan os.Signal) {
+	go func() {
+		<-ch
+		utils.Log.Warnln("get sigint")
+		core.WalMain(&srv.Wal)
+		os.Exit(0)
+	}()
+}
+
+func sigpipeHandle(ch chan os.Signal) {
+	go func() {
+		for _ = range ch {
+		}
+	}()
 }
 
 func enterDrainMode(ch chan os.Signal) {
 	go func() {
-		<-ch
-		utils.Log.Infoln("get SIGUSR1 sig")
-		utils.DrainMode = 1
-		core.WalSync(&srv.Wal)
+		for {
+			<-ch
+			utils.Log.Warnln("get SIGUSR1 sig")
+			utils.DrainMode = 1
+		}
 	}()
 }
 
@@ -90,7 +106,7 @@ func handleSigtermPid1(ch chan os.Signal) {
 	go func() {
 		<-ch
 		utils.Log.Infoln("get SIGTERM sig")
-		core.WalSync(&srv.Wal)
+		core.WalMain(&srv.Wal)
 		os.Exit(143)
 	}()
 }

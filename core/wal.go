@@ -118,7 +118,7 @@ func useNext(w *model.Wal) bool {
 func ratio(w *model.Wal) int64 {
 	var n, d int64
 	d = w.Alive + w.Resv
-	n = int64(w.NFile*w.FileSize) - d
+	n = w.NFile*w.FileSize - d
 	if d <= 0 {
 		return 0
 	}
@@ -128,7 +128,7 @@ func ratio(w *model.Wal) int64 {
 func walResvMigrate(w *model.Wal, j *model.Job) int64 {
 	z := int64(binary.Size(int64(1)))
 	z += int64(len(j.Tube.Name))
-	z += int64(binary.Size(model.JobRec{}))
+	z += int64(binary.Size(j.R))
 	z += j.R.BodySize
 	return reserve(w, z)
 }
@@ -224,14 +224,14 @@ func moveResv(to *model.File, from *model.File, n int64) {
 	to.Free -= n
 }
 
-func needFree(w *model.Wal, n int64) bool {
+func needFree(w *model.Wal, n int64) int64 {
 	if w.Tail.Free >= n {
-		return false
+		return n
 	}
 	if makeNextFile(w) {
-		return false
+		return n
 	}
-	return true
+	return 0
 }
 
 // Ensures:
@@ -261,7 +261,7 @@ func balanceRest(w *model.Wal, b *model.File, n int64) int64 {
 		return balanceRest(w, b.Next, 0)
 	}
 
-	if needFree(w, r) {
+	if needFree(w, r) != r {
 		utils.Log.Warnln("need free")
 		return 0
 	}
@@ -284,7 +284,7 @@ func balance(w *model.Wal, n int64) int64 {
 	// (this loop will run at most once)
 	for ; w.Cur.Resv < n; {
 		m := w.Cur.Resv
-		if needFree(w, m) {
+		if needFree(w, m) != m {
 			utils.Log.Warnln("need free")
 			return 0
 		}
@@ -302,20 +302,21 @@ func reserve(w *model.Wal, n int64) int64 {
 	if w.Cur.Free >= n {
 		w.Cur.Free -= n
 		w.Cur.Resv += n
-		w.Resv += int64(n)
+		w.Resv += n
 		return n
 	}
 
-	if needFree(w, n) {
+	if needFree(w, n) != n {
 		utils.Log.Warnln("need free")
 		return 0
 	}
 
 	w.Tail.Free -= n
 	w.Tail.Resv += n
-	w.Resv += int64(n)
+	w.Resv += n
+
 	if balance(w, n) == 0 {
-		w.Resv -= int64(n)
+		w.Resv -= n
 		w.Tail.Resv -= n
 		w.Tail.Free += n
 		return 0
@@ -327,19 +328,18 @@ func reserve(w *model.Wal, n int64) int64 {
 func WalResvPut(w *model.Wal, j *model.Job) int64 {
 	z := int64(binary.Size(int64(1)))
 	z += int64(len(j.Tube.Name))
-	z += int64(binary.Size(model.JobRec{}))
+	z += int64(binary.Size(j.R))
 	z += j.R.BodySize
 
 	z += int64(binary.Size(int64(1)))
-	z += int64(binary.Size(model.JobRec{}))
+	z += int64(binary.Size(j.R))
 
 	return reserve(w, z)
 }
 
 // WalResvUpdate
 func WalResvUpdate(w *model.Wal) int64 {
-	var z int64
-	z += int64(binary.Size(int64(1)))
+	z := int64(binary.Size(int64(1)))
 	z += int64(binary.Size(model.JobRec{}))
 	return reserve(w, z)
 }

@@ -61,13 +61,13 @@ func MakeJobWithID(pri uint32, delay, ttr, bodySize int64, tube *model.Tube, id 
 	j := NewJob(bodySize)
 	if len(id) > 0 {
 		j.R.ID = id[0]
-		if id[0] >= nextJobId {
-			nextJobId = id[0] + 1
+		if j.R.ID >= nextJobId {
+			nextJobId = j.R.ID + 1
 		}
 	} else {
 		j.R.ID = nextJobId
+		nextJobId++
 	}
-	nextJobId++
 
 	j.R.Pri = pri
 	j.R.Delay = delay
@@ -133,10 +133,12 @@ func JobCopy(j *model.Job) *model.Job {
 		return nil
 	}
 	j2 := *j
-	newJob := &j2
-	newJob.File = nil
-	newJob.R.State = constant.Copy
-	return newJob
+	n := &j2
+
+	JobListRest(n)
+	n.File = nil
+	n.R.State = constant.Copy
+	return n
 }
 
 func JobFree(j *model.Job) {

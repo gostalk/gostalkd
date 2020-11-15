@@ -69,10 +69,12 @@ func FileRmJob(f *model.File, j *model.Job) {
 	}
 	j.FNext.FPre = j.FPre
 	j.FPre.FNext = j.FNext
+
 	j.FNext = nil
 	j.FPre = nil
-	j.FPre = nil
-	f.W.Alive -= int64(j.WalUsed)
+	j.File = nil
+
+	f.W.Alive -= j.WalUsed
 	j.WalUsed = 0
 	fileDecRef(f)
 }
@@ -447,7 +449,7 @@ func fileWrite(f *model.File, j *model.Job, obj interface{}) bool {
 
 func fileWrJobShort(f *model.File, j *model.Job) bool {
 	nl := int64(0)
-	if !fileWrite(f, j, &nl) {
+	if !fileWrite(f, j, nl) {
 		return false
 	}
 	if !fileWrite(f, j, j.R) {
@@ -463,7 +465,7 @@ func fileWrJobShort(f *model.File, j *model.Job) bool {
 func fileWrJobFull(f *model.File, j *model.Job) bool {
 	FileAddJob(f, j)
 	nl := int64(len(j.Tube.Name))
-	return fileWrite(f, j, &nl) &&
+	return fileWrite(f, j, nl) &&
 		fileWrite(f, j, []byte(j.Tube.Name)) &&
 		fileWrite(f, j, j.R) &&
 		fileWrite(f, j, j.Body)
@@ -477,7 +479,7 @@ func fileWClose(f *model.File) {
 		return
 	}
 	if f.Free > 0 {
-		if err := f.F.Truncate(int64(f.W.FileSize - f.Free)); err != nil {
+		if err := f.F.Truncate(f.W.FileSize - f.Free); err != nil {
 			utils.Log.Warnf("file Truncate %s", err)
 		}
 	}
