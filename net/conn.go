@@ -217,7 +217,7 @@ func removeWaitingCoon(c *model.Coon) {
 	if c.Type&constant.ConnTypeWaiting <= 0 {
 		return
 	}
-	c.Type &= constant.ConnTypeWaiting
+	c.Type &= ^constant.ConnTypeWaiting
 	utils.GlobalState.WaitingCt--
 	c.Watch.Iterator(func(item interface{}) (bool, error) {
 		t := item.(*model.Tube)
