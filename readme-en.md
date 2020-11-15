@@ -17,6 +17,7 @@ purpose
 ## Milepost
 
  - *2020-11-14* : all dispatch cmd complete but memory only, binlog period not supported. 
+ - *2020-11-15* : binlog persistence support
 
 ## Quick Start
 
