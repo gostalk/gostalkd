@@ -9,9 +9,9 @@
 
 ## 描述
 
- - 简单快速的通用工作队列
- - 作为学习目的为初衷，用golang完全实现了 [Beanstalk](https://github.com/beanstalkd/beanstalkd) 功能
- - [协议说明](protocol.zh-CN.md)
+- 简单快速的通用工作队列
+- 作为学习目的为初衷，用golang完全实现了 [Beanstalk](https://github.com/beanstalkd/beanstalkd) 功能
+- [协议说明](protocol.zh-CN.md)
 
 ## 里程碑
 
@@ -21,14 +21,18 @@
 ## 快速开始
 
 使用go get安装
+
 ```bash
-GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/sjatsh/beanstalkd-go
+go get -u -v github.com/sjatsh/beanstalkd-go
 ```
 
 手动编译
+
 ```bash
-make
-./beanstalkd-go
+make       # 编译
+make run   # 运行
+make test  # 运行单测
+make clean # 清除编译和运行结果
 ```
 
 查看支持命令

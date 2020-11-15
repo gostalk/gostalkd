@@ -9,28 +9,33 @@ English | [简体中文](readme.md)
 
 ## Description
 
- - Simple and fast general purpose work queue.
- - Fully [Beanstalk](https://github.com/beanstalkd/beanstalkd) compatible task queue implemented by golang for learning
-purpose
- - [ProtocolDescription](protocol.zh-CN.md)
+- Simple and fast general purpose work queue.
+- Fully [Beanstalk](https://github.com/beanstalkd/beanstalkd) compatible task queue implemented by golang for learning
+  purpose
+- [ProtocolDescription](protocol.zh-CN.md)
 
 ## Milepost
 
- - *2020-11-14* : all dispatch cmd complete but memory only. 
- - *2020-11-15* : binlog persistence support
+- *2020-11-14* : all dispatch cmd complete but memory only.
+- *2020-11-15* : binlog persistence support
 
 ## Quick Start
 
 using go get install
+
 ```bash
-GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/sjatsh/beanstalkd-go
+go get -u -v github.com/sjatsh/beanstalkd-go
 ```
 
 using make you self
+
 ```bash
 make
-./beanstalkd-go
+make run    # run program
+make test   # run go test
+make clean  # del program and log dir
 ```
+
 view support commands
 
 ```bash
@@ -62,5 +67,5 @@ Usage of ./beanstalkd-go:
 
 ## Third Party
 
- - [Beanstalkd queue server console](https://github.com/xuri/aurora)
- - [High available beanstalkd go client](https://github.com/tal-tech/go-queue)
+- [Beanstalkd queue server console](https://github.com/xuri/aurora)
+- [High available beanstalkd go client](https://github.com/tal-tech/go-queue)
