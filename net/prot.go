@@ -43,7 +43,7 @@ func EpollQAdd(c *model.Coon, rw byte) {
 //  EpollQApply
 func EpollQApply() {
 	var c *model.Coon
-	for ; epollQ != nil; {
+	for epollQ != nil {
 		c = epollQ
 		epollQ = epollQ.Next
 		c.Next = nil
@@ -56,7 +56,7 @@ func EpollQApply() {
 // EpollQRmConn
 func EpollQRmConn(c *model.Coon) {
 	var x, newhead *model.Coon
-	for ; epollQ != nil; {
+	for epollQ != nil {
 		x = epollQ
 		epollQ = epollQ.Next
 		x.Next = nil
@@ -163,7 +163,7 @@ func dispatchCmd(c *model.Coon) {
 		timeout = dispatchOpReserveTimeout(c)
 		fallthrough
 	case constant.OpReserve:
-		dispatchOpReserve(c, timeout)
+		dispatchOpReserve(c, t, timeout)
 	case constant.OpReserveJob:
 		dispatchOpReserveJob(c)
 	case constant.OpDelete:
@@ -344,7 +344,7 @@ func dispatchOpPeekJob(c *model.Coon) {
 
 // dispatchOpReserveTimeout 中间状态用于从指令中获取timeout
 func dispatchOpReserveTimeout(c *model.Coon) int64 {
-	timeout, err := utils.StrTol(c.Cmd[len(constant.CmdReserveTimeout):])
+	timeout, err := utils.StrTol(c.Cmd[len(constant.CmdReserveTimeout)+1:])
 	if err != nil {
 		replyMsg(c, constant.MsgBadFormat)
 		return -1
@@ -353,8 +353,8 @@ func dispatchOpReserveTimeout(c *model.Coon) int64 {
 }
 
 // dispatchOpReserve 处理 reserve 指令
-func dispatchOpReserve(c *model.Coon, timeout int64) {
-	if c.CmdLen != len(constant.CmdReserve)+2 {
+func dispatchOpReserve(c *model.Coon, t int, timeout int64) {
+	if t == constant.OpReserve && c.CmdLen != len(constant.CmdReserve)+2 {
 		replyMsg(c, constant.MsgBadFormat)
 		return
 	}
