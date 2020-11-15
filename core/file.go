@@ -186,7 +186,7 @@ func ReadRec(f *model.File, l *model.Job) error {
 	case constant.Delayed:
 		if j == nil {
 			if jr.BodySize > *utils.MaxJobSize {
-				warnPos(f, -r, "job %d is too big (%d > %zd)",
+				warnPos(f, -r, "job %d is too big (%d > %d)",
 					jr.ID,
 					jr.BodySize,
 					utils.MaxJobSize)
@@ -308,7 +308,7 @@ func ReadRec5(f *model.File, l *model.Job) error {
 	case constant.Delayed:
 		if j == nil {
 			if int64(jr.BodySize) > *utils.MaxJobSize {
-				warnPos(f, -r, "job %d is too big (%d > %zd)",
+				warnPos(f, -r, "job %d is too big (%d > %d)",
 					jr.ID,
 					jr.BodySize,
 					utils.MaxJobSize)

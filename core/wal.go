@@ -381,7 +381,7 @@ func walRead(w *model.Wal, list *model.Job, min int64) {
 
 		file, err := os.OpenFile(f.Path, os.O_RDONLY, 0400)
 		if err != nil {
-			utils.Log.Error("open file err: %s", err)
+			utils.Log.Errorf("open file err: %s", err)
 			continue
 		}
 
