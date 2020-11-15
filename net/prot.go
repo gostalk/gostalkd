@@ -1112,7 +1112,7 @@ func reply(c *model.Coon, line []byte, len int64, state int) {
 	if l == string(constant.MsgBadFormat) || l == string(constant.MsgInternalError) ||
 		l == string(constant.MsgNotFound) || l == string(constant.MsgUnknownCommand) ||
 		l == string(constant.MsgTimedOut) {
-		log.Warnln(string(constant.MsgBadFormat))
+		log.Warnln(l)
 	} else {
 		log.Debugln(l)
 	}
