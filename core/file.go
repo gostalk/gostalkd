@@ -413,7 +413,7 @@ func warnPos(f *model.File, adj int, fmtStr string, params ...interface{}) {
 	if err != nil {
 		return
 	}
-	utils.Log.Errorf("%s:%d: %s", f.Path, off+int64(adj), fmt.Sprintf(fmtStr, params))
+	utils.Log.Errorf("%s:%d: %s", f.Path, off+int64(adj), fmt.Sprintf(fmtStr, params...))
 }
 
 func fileIncRef(f *model.File) {
