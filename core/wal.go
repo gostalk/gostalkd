@@ -26,10 +26,6 @@ import (
 	"github.com/sjatsh/beanstalk-go/utils"
 )
 
-var Reserve = (ReserveH)(reserve)
-
-type ReserveH func(w *model.Wal, n int64) int64
-
 // WalInit
 func WalInit(w *model.Wal, list *model.Job) {
 	min := walScanDir(w)
@@ -39,6 +35,78 @@ func WalInit(w *model.Wal, list *model.Job) {
 		utils.Log.Panicln("make next file err")
 	}
 	w.Cur = w.Tail
+}
+
+// WalResvUpdate
+func WalResvUpdate(w *model.Wal) int64 {
+	z := int64(binary.Size(int64(1)))
+	z += int64(binary.Size(model.JobRec{}))
+	return reserve(w, z)
+}
+
+// walDirLock
+func WalDirLock(w *model.Wal) bool {
+	if err := os.MkdirAll(w.Dir, os.ModePerm); err != nil {
+		utils.Log.Errorf("mkdir err: %s", err)
+		return false
+	}
+
+	path := w.Dir + "/lock"
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		utils.Log.Warnf("open %s err:%s", path, err)
+		return false
+	}
+
+	lk := &syscall.Flock_t{
+		Type:   syscall.F_WRLCK,
+		Whence: 0,
+		Start:  0,
+		Len:    0,
+	}
+	if err := syscall.FcntlFlock(file.Fd(), syscall.F_SETLK, lk); err != nil {
+		utils.Log.Warnf("fcntl err:%s", err)
+		return false
+	}
+	return true
+}
+
+func WalSync(w *model.Wal) {
+	now := time.Now().UnixNano()
+	if !w.WantSync || now < w.LastSync+w.SyncRate {
+		return
+	}
+	if err := w.Cur.F.Sync(); err != nil {
+		utils.Log.Warnf("fsync error:%s\n", err)
+	}
+}
+
+func WalWrite(w *model.Wal, j *model.Job) bool {
+	ok := false
+	if !w.Use {
+		return true
+	}
+	if w.Cur.Resv > 0 || useNext(w) {
+		if j.File != nil {
+			ok = fileWrJobShort(w.Cur, j)
+		} else {
+			ok = fileWrJobFull(w.Cur, j)
+		}
+	}
+
+	if !ok {
+		fileWClose(w.Cur)
+		w.Use = false
+	}
+	w.Nrec++
+	return ok
+}
+
+func WalMain(w *model.Wal) {
+	if w.Use {
+		walCompact(w)
+		WalSync(w)
+	}
 }
 
 // walScanDir
@@ -157,44 +225,6 @@ func moveOne(w *model.Wal) {
 func walCompact(w *model.Wal) {
 	for r := ratio(w); r >= 2; r-- {
 		moveOne(w)
-	}
-}
-
-func WalSync(w *model.Wal) {
-	now := time.Now().UnixNano()
-	if !w.WantSync || now < w.LastSync+w.SyncRate {
-		return
-	}
-	if err := w.Cur.F.Sync(); err != nil {
-		utils.Log.Warnf("fsync error:%s\n", err)
-	}
-}
-
-func WalWrite(w *model.Wal, j *model.Job) bool {
-	ok := false
-	if !w.Use {
-		return true
-	}
-	if w.Cur.Resv > 0 || useNext(w) {
-		if j.File != nil {
-			ok = fileWrJobShort(w.Cur, j)
-		} else {
-			ok = fileWrJobFull(w.Cur, j)
-		}
-	}
-
-	if !ok {
-		fileWClose(w.Cur)
-		w.Use = false
-	}
-	w.Nrec++
-	return ok
-}
-
-func WalMain(w *model.Wal) {
-	if w.Use {
-		walCompact(w)
-		WalSync(w)
 	}
 }
 
@@ -335,40 +365,6 @@ func WalResvPut(w *model.Wal, j *model.Job) int64 {
 	z += int64(binary.Size(j.R))
 
 	return reserve(w, z)
-}
-
-// WalResvUpdate
-func WalResvUpdate(w *model.Wal) int64 {
-	z := int64(binary.Size(int64(1)))
-	z += int64(binary.Size(model.JobRec{}))
-	return reserve(w, z)
-}
-
-// walDirLock
-func WalDirLock(w *model.Wal) bool {
-	if err := os.MkdirAll(w.Dir, os.ModePerm); err != nil {
-		utils.Log.Errorf("mkdir err: %s", err)
-		return false
-	}
-
-	path := w.Dir + "/lock"
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		utils.Log.Warnf("open %s err:%s", path, err)
-		return false
-	}
-
-	lk := &syscall.Flock_t{
-		Type:   syscall.F_WRLCK,
-		Whence: 0,
-		Start:  0,
-		Len:    0,
-	}
-	if err := syscall.FcntlFlock(file.Fd(), syscall.F_SETLK, lk); err != nil {
-		utils.Log.Warnf("fcntl err:%s", err)
-		return false
-	}
-	return true
 }
 
 // walRead
