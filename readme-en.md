@@ -12,7 +12,7 @@ English | [简体中文](readme.md)
 - Simple and fast general purpose work queue.
 - Fully [Beanstalk](https://github.com/beanstalkd/beanstalkd) compatible task queue implemented by golang for learning
   purpose
-- [ProtocolDescription](protocol.zh-CN.md)
+- [ProtocolDescription](doc/protocol.zh-CN.md)
 
 ## Milepost
 
