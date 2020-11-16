@@ -18,7 +18,8 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"syscall"
+	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/sjatsh/beanstalkd-go/constant"
@@ -1232,8 +1233,11 @@ func fmtStats(s *model.Server) string {
 		wcur = s.Wal.Cur.Seq
 	}
 
-	ru := &syscall.Rusage{}
-	syscall.Getrusage(syscall.RUSAGE_SELF, ru)
+	// utsName := utils.GetUtsName()
+	ru := utils.Getrusage()
+	info := utils.GetSysInfo()
+
+	drainMode := strconv.FormatBool(atomic.LoadInt64(&utils.DrainMode) == 1)
 
 	return fmt.Sprintf(constant.StatsFmt,
 		utils.GlobalState.UrgentCt,
@@ -1274,21 +1278,21 @@ func fmtStats(s *model.Server) string {
 		utils.TotalConnCt,
 		os.Getpid(),
 		utils.Version,
-		ru.Utime.Sec,
-		ru.Utime.Usec,
-		ru.Stime.Sec,
-		ru.Stime.Usec,
+		ru.Usec,
+		ru.Total,
+		ru.Ssec,
+		ru.Total,
 		uptime(),
 		whead,
 		wcur,
 		s.Wal.Nmig,
 		s.Wal.Nrec,
 		s.Wal.FileSize,
-		fmt.Sprint(utils.DrainMode == 1),
+		drainMode,
 		utils.InstanceHex,
-		utils.UtsName.Nodename,
-		utils.UtsName.Version,
-		utils.UtsName.Machine,
+		info.NodeName,
+		info.Version,
+		info.Machine,
 	)
 }
 

@@ -44,32 +44,7 @@ func WalResvUpdate(w *model.Wal) int64 {
 	return reserve(w, z)
 }
 
-// walDirLock
-func WalDirLock(w *model.Wal) bool {
-	if err := os.MkdirAll(w.Dir, os.ModePerm); err != nil {
-		utils.Log.Errorf("mkdir err: %s", err)
-		return false
-	}
 
-	path := w.Dir + "/lock"
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		utils.Log.Warnf("open %s err:%s", path, err)
-		return false
-	}
-
-	lk := &syscall.Flock_t{
-		Type:   syscall.F_WRLCK,
-		Whence: 0,
-		Start:  0,
-		Len:    0,
-	}
-	if err := syscall.FcntlFlock(file.Fd(), syscall.F_SETLK, lk); err != nil {
-		utils.Log.Warnf("fcntl err:%s", err)
-		return false
-	}
-	return true
-}
 
 func WalSync(w *model.Wal) {
 	now := time.Now().UnixNano()

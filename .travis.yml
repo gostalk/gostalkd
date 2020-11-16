@@ -4,6 +4,7 @@ go:
 os:
   - linux
   - osx
+  - windows
 sudo: true
 script:
   - go test ./... -race -coverprofile=coverage.txt -covermode=atomic

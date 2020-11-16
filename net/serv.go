@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync/atomic"
 
 	"github.com/sjatsh/beanstalkd-go/constant"
 	"github.com/sjatsh/beanstalkd-go/core"
@@ -91,7 +92,7 @@ func Start(s *model.Server) error {
 	}
 }
 
-// srvAcquireWal
+// SrvAcquireWal
 func SrvAcquireWal(s *model.Server) {
 	if s.Wal.Use {
 		if !core.WalDirLock(&s.Wal) {
@@ -383,7 +384,8 @@ func enqueueInComingJob(c *model.Coon) {
 		return
 	}
 
-	if utils.DrainMode > 0 {
+	drainMode := atomic.LoadInt64(&utils.DrainMode)
+	if drainMode > 0 {
 		core.JobFree(j)
 		replyErr(c, constant.MsgDraining)
 		return

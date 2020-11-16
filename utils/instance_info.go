@@ -17,18 +17,30 @@ import (
 	"fmt"
 	"math/rand"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/sjatsh/beanstalkd-go/constant"
 )
 
+// SysName
+type SysInfo struct {
+	SysName  string
+	NodeName string
+	Release  string
+	Version  string
+	Machine  string
+}
+
+// Rusage
+type Rusage struct {
+	Usec  int64
+	Ssec  int64
+	Total int64
+}
+
 var (
-	DrainMode   int
+	DrainMode   int64
 	InstanceHex string
-	UtsName     = &unix.Utsname{}
 )
 
-// RandInstanceHex 生成随机实例编号
 func init() {
 	randData := make([]byte, constant.InstanceIDBytes)
 	if _, err := rand.Read(randData); err != nil {
@@ -41,8 +53,4 @@ func init() {
 		instanceHex[i*2+1] = d[1]
 	}
 	InstanceHex = fmt.Sprintf("%s", instanceHex)
-
-	if err := unix.Uname(UtsName); err != nil {
-		panic(err)
-	}
 }

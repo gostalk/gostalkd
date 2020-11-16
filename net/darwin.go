@@ -34,7 +34,7 @@ func init() {
 	var err error
 	kq, err = syscall.Kqueue()
 	if err != nil {
-		panic(err)
+		utils.Log.Panic(err)
 	}
 }
 

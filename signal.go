@@ -14,43 +14,43 @@
 package main
 
 import (
-	"flag"
-	"math/rand"
-	"time"
+	"os"
+	"sync/atomic"
 
+	"github.com/sjatsh/beanstalkd-go/core"
 	"github.com/sjatsh/beanstalkd-go/model"
-	"github.com/sjatsh/beanstalkd-go/net"
 	"github.com/sjatsh/beanstalkd-go/utils"
 )
 
-var version string
+// sigIntTermHandle
+func sigIntTermHandle(ch chan os.Signal, wal *model.Wal) {
+	go func() {
+		<-ch
+		utils.Log.Warnln("get sigint run clean")
 
-func init() {
-	utils.Version = version
+		utils.Log.Warnln("sync wal file start")
+		core.WalSync(wal)
+		utils.Log.Warnln("sync wal file stop")
+
+		os.Exit(0)
+	}()
 }
 
-func main() {
-	flag.Parse()
-	rand.Seed(time.Now().UnixNano())
+// sigpipeHandle
+func sigpipeHandle(ch chan os.Signal) {
+	go func() {
+		for _ = range ch {
+		}
+	}()
+}
 
-	// new server object
-	srv, err := net.NewServer(
-		model.WithPort(*utils.Port),
-		model.WithAddr(*utils.ListenAddr),
-		model.WithUser(*utils.User),
-	)
-	if err != nil {
-		utils.Log.Panicln(err)
-	}
-
-	// parse options
-	utils.OptParse(srv)
-	// sig handlers
-	setSigHandlers(srv)
-	// srvAcquireWal
-	net.SrvAcquireWal(srv)
-
-	if net.Start(srv) != nil {
-		utils.Log.Panicln(err)
-	}
+// enterDrainMode
+func enterDrainMode(ch chan os.Signal) {
+	go func() {
+		for {
+			<-ch
+			utils.Log.Warnln("get SIGUSR1 sig")
+			atomic.StoreInt64(&utils.DrainMode, 1)
+		}
+	}()
 }

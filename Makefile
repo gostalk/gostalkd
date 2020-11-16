@@ -11,6 +11,8 @@ darwin:
 	GOOS=darwin go build  -ldflags "-X 'main.version=${VERSION}'" -o ${NAME} .
 linux:
 	GOOS=linux go build  -ldflags "-X 'main.version=${VERSION}'" -o ${NAME} .
+windows:
+	GOOS=windows go build  -ldflags "-X 'main.version=${VERSION}'" -o ${NAME} .
 install:
 	cp -f ${NAME} ${INSTALL_DIR}
 	mkdir -p ${LOG_DIR}

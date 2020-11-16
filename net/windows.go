@@ -1,3 +1,5 @@
+// +build windows
+
 // Copyright 2020 SunJun <i@sjis.me>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,46 +13,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package main
+package net
 
 import (
-	"flag"
-	"math/rand"
 	"time"
 
 	"github.com/sjatsh/beanstalkd-go/model"
-	"github.com/sjatsh/beanstalkd-go/net"
-	"github.com/sjatsh/beanstalkd-go/utils"
 )
 
-var version string
-
 func init() {
-	utils.Version = version
 }
 
-func main() {
-	flag.Parse()
-	rand.Seed(time.Now().UnixNano())
+func sockWant(s *model.Socket, rw byte) error {
+	return nil
+}
 
-	// new server object
-	srv, err := net.NewServer(
-		model.WithPort(*utils.Port),
-		model.WithAddr(*utils.ListenAddr),
-		model.WithUser(*utils.User),
-	)
-	if err != nil {
-		utils.Log.Panicln(err)
-	}
-
-	// parse options
-	utils.OptParse(srv)
-	// sig handlers
-	setSigHandlers(srv)
-	// srvAcquireWal
-	net.SrvAcquireWal(srv)
-
-	if net.Start(srv) != nil {
-		utils.Log.Panicln(err)
-	}
+func sockNext(s **model.Socket, timeout time.Duration) (byte, error) {
+	return 0, nil
 }

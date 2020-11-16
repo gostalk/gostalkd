@@ -1,3 +1,5 @@
+// +build windows
+
 // Copyright 2020 SunJun <i@sjis.me>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,46 +13,32 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package main
+package core
 
 import (
-	"flag"
-	"math/rand"
-	"time"
+	"os"
+
+	"golang.org/x/sys/windows"
 
 	"github.com/sjatsh/beanstalkd-go/model"
-	"github.com/sjatsh/beanstalkd-go/net"
 	"github.com/sjatsh/beanstalkd-go/utils"
 )
 
-var version string
-
-func init() {
-	utils.Version = version
-}
-
-func main() {
-	flag.Parse()
-	rand.Seed(time.Now().UnixNano())
-
-	// new server object
-	srv, err := net.NewServer(
-		model.WithPort(*utils.Port),
-		model.WithAddr(*utils.ListenAddr),
-		model.WithUser(*utils.User),
-	)
+// WalDirLock
+func WalDirLock(w *model.Wal) bool {
+	if err := os.MkdirAll(w.Dir, os.ModePerm); err != nil {
+		utils.Log.Errorf("mkdir err: %s", err)
+		return false
+	}
+	path := w.Dir + "/lock"
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		utils.Log.Panicln(err)
+		utils.Log.Warnf("open %s err:%s", path, err)
+		return false
 	}
-
-	// parse options
-	utils.OptParse(srv)
-	// sig handlers
-	setSigHandlers(srv)
-	// srvAcquireWal
-	net.SrvAcquireWal(srv)
-
-	if net.Start(srv) != nil {
-		utils.Log.Panicln(err)
+	err = windows.LockFileEx(windows.Handle(file.Fd()), windows.LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &windows.Overlapped{})
+	if err == nil {
+		return true
 	}
+	return false
 }

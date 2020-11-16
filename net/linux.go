@@ -21,6 +21,7 @@ import (
 	"unsafe"
 
 	"github.com/sjatsh/beanstalkd-go/model"
+	"github.com/sjatsh/beanstalkd-go/utils"
 )
 
 var epfd int
@@ -29,7 +30,7 @@ func init() {
 	var err error
 	epfd, err = syscall.EpollCreate(1)
 	if err != nil {
-		panic(err)
+		utils.Log.Panic(err)
 	}
 }
 

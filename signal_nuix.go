@@ -1,3 +1,5 @@
+// +build linux darwin openbsd
+
 // Copyright 2020 SunJun <i@sjis.me>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,43 +16,24 @@
 package main
 
 import (
-	"flag"
-	"math/rand"
-	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/sjatsh/beanstalkd-go/model"
-	"github.com/sjatsh/beanstalkd-go/net"
-	"github.com/sjatsh/beanstalkd-go/utils"
 )
 
-var version string
+// setSigHandlers
+func setSigHandlers(srv *model.Server) {
+	sigpipe := make(chan os.Signal, 1)
+	signal.Notify(sigpipe, syscall.SIGPIPE)
+	sigpipeHandle(sigpipe)
 
-func init() {
-	utils.Version = version
-}
+	sigUsr1 := make(chan os.Signal, 1)
+	signal.Notify(sigUsr1, syscall.SIGUSR1)
+	enterDrainMode(sigUsr1)
 
-func main() {
-	flag.Parse()
-	rand.Seed(time.Now().UnixNano())
-
-	// new server object
-	srv, err := net.NewServer(
-		model.WithPort(*utils.Port),
-		model.WithAddr(*utils.ListenAddr),
-		model.WithUser(*utils.User),
-	)
-	if err != nil {
-		utils.Log.Panicln(err)
-	}
-
-	// parse options
-	utils.OptParse(srv)
-	// sig handlers
-	setSigHandlers(srv)
-	// srvAcquireWal
-	net.SrvAcquireWal(srv)
-
-	if net.Start(srv) != nil {
-		utils.Log.Panicln(err)
-	}
+	sigIntTerm := make(chan os.Signal, 3)
+	signal.Notify(sigIntTerm, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+	sigIntTermHandle(sigIntTerm, &srv.Wal)
 }

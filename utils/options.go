@@ -17,9 +17,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	osUser "os/user"
-	"strconv"
-	"syscall"
 
 	"github.com/edoger/zkits-logger"
 
@@ -43,7 +40,7 @@ var (
 
 func OptParse(s *model.Server) {
 	if *ShowVersion {
-		fmt.Printf("beanstalk-go %s\n", Version)
+		fmt.Printf("beanstalkd-go %s\n", Version)
 		os.Exit(0)
 	}
 
@@ -69,20 +66,5 @@ func OptParse(s *model.Server) {
 	if *BingLogDir != "" {
 		s.Wal.Dir = *BingLogDir
 		s.Wal.Use = true
-	}
-}
-
-func su(user string) {
-	usr, err := osUser.Lookup(user)
-	if err != nil {
-		Log.Panicln(err)
-	}
-	gid, _ := strconv.ParseInt(usr.Gid, 10, 64)
-	uid, _ := strconv.ParseInt(usr.Uid, 10, 64)
-	if err := syscall.Setgid(int(gid)); err != nil {
-		Log.Panicln(err)
-	}
-	if err := syscall.Setuid(int(uid)); err != nil {
-		Log.Panicln(err)
 	}
 }

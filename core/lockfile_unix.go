@@ -1,3 +1,5 @@
+// +build linux darwin openbsd
+
 // Copyright 2020 SunJun <i@sjis.me>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,46 +13,39 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package main
+package core
 
 import (
-	"flag"
-	"math/rand"
-	"time"
+	"os"
+	"syscall"
 
 	"github.com/sjatsh/beanstalkd-go/model"
-	"github.com/sjatsh/beanstalkd-go/net"
 	"github.com/sjatsh/beanstalkd-go/utils"
 )
 
-var version string
+// WalDirLock
+func WalDirLock(w *model.Wal) bool {
+	if err := os.MkdirAll(w.Dir, os.ModePerm); err != nil {
+		utils.Log.Errorf("mkdir err: %s", err)
+		return false
+	}
 
-func init() {
-	utils.Version = version
-}
-
-func main() {
-	flag.Parse()
-	rand.Seed(time.Now().UnixNano())
-
-	// new server object
-	srv, err := net.NewServer(
-		model.WithPort(*utils.Port),
-		model.WithAddr(*utils.ListenAddr),
-		model.WithUser(*utils.User),
-	)
+	path := w.Dir + "/lock"
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		utils.Log.Panicln(err)
+		utils.Log.Warnf("open %s err:%s", path, err)
+		return false
 	}
 
-	// parse options
-	utils.OptParse(srv)
-	// sig handlers
-	setSigHandlers(srv)
-	// srvAcquireWal
-	net.SrvAcquireWal(srv)
-
-	if net.Start(srv) != nil {
-		utils.Log.Panicln(err)
+	lk := &syscall.Flock_t{
+		Type:   syscall.F_WRLCK,
+		Whence: 0,
+		Start:  0,
+		Len:    0,
 	}
+	if err := syscall.FcntlFlock(file.Fd(), syscall.F_SETLK, lk); err != nil {
+		utils.Log.Warnf("fcntl err:%s", err)
+		return false
+	}
+	return true
 }
