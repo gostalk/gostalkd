@@ -68,4 +68,4 @@ Usage of ./beanstalkd-go:
 ## Third Party
 
 - [Beanstalkd queue server console](https://github.com/xuri/aurora)
-- [High available beanstalkd go client](https://github.com/tal-tech/go-queue)
+- [High available beanstalkd go client](https://github.com/tal-tech/go-queue) 

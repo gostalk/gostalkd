@@ -67,4 +67,4 @@ Usage of ./beanstalkd-go:
 ## 第三方
 
 - [Beanstalkd管理界面](https://github.com/xuri/aurora)
-- [Beanstalkd高可用客户端](https://github.com/tal-tech/go-queue)
+- [Beanstalkd高可用客户端](https://github.com/tal-tech/go-queue) 
