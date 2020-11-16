@@ -1,0 +1,4 @@
+github.com/edoger/zkits-logger v1.1.1 h1:Rnhrxv0WOWmgGdjE1sXN7JDMGe33dRhDI6JQj5pLFso=
+github.com/edoger/zkits-logger v1.1.1/go.mod h1:iAAiekxY58751+gf42x2E6R2KmiVD1dqqxX2nIydrLo=
+golang.org/x/sys v0.0.0-20201112073958-5cba982894dd h1:5CtCZbICpIOFdgO940moixOPjc0178IU44m4EjOO5IY=
+golang.org/x/sys v0.0.0-20201112073958-5cba982894dd/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=

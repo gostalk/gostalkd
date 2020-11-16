@@ -22,8 +22,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/sjatsh/beanstalkd-go/constant"
 	"github.com/sjatsh/beanstalkd-go/core"
 	"github.com/sjatsh/beanstalkd-go/model"
@@ -228,7 +226,7 @@ func connProcessIO(c *model.Coon) {
 		data := make([]byte, constant.LineBufSize-c.CmdRead)
 		r, err := c.Sock.F.Read(data)
 		if err != nil && err != io.EOF {
-			logrus.Error(err)
+			utils.Log.Error(err)
 			return
 		}
 		if r == 0 {

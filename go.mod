@@ -3,6 +3,6 @@ module github.com/sjatsh/beanstalkd-go
 go 1.15
 
 require (
-	github.com/sirupsen/logrus v1.7.0
+	github.com/edoger/zkits-logger v1.1.1
 	golang.org/x/sys v0.0.0-20201112073958-5cba982894dd
 )
