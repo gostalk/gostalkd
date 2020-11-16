@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
+	"github.com/edoger/zkits-logger"
 
 	"github.com/sjatsh/beanstalkd-go/constant"
 	"github.com/sjatsh/beanstalkd-go/model"
@@ -47,11 +47,7 @@ func OptParse(s *model.Server) {
 		os.Exit(0)
 	}
 
-	logLevel, err := logrus.ParseLevel(*LogLevel)
-	if err != nil {
-		panic(err)
-	}
-	Log.SetLevel(logLevel)
+	Log.SetLevel(logger.MustParseLevel(*LogLevel))
 
 	if *MaxJobSize > constant.JobDataSizeLimitMax {
 		Log.Warnf("maximum job size was set to %d", constant.JobDataSizeLimitMax)

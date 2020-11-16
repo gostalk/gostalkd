@@ -14,13 +14,7 @@
 package utils
 
 import (
-	"github.com/sirupsen/logrus"
+	"github.com/edoger/zkits-logger"
 )
 
-var Log *logrus.Logger
-
-func init()  {
-	Log = logrus.New()
-	Log.SetNoLock()
-	Log.Formatter = &logrus.JSONFormatter{}
-}
+var Log = logger.New("beanstalkd")
