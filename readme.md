@@ -10,7 +10,7 @@
 ## 描述
 
 - 简单快速的通用工作队列
-- 作为学习目的为初衷，用golang完全实现了 [Beanstalk](https://github.com/beanstalkd/beanstalkd) 功能
+- 用golang完全实现了 [Beanstalk](https://github.com/beanstalkd/beanstalkd) 功能
 - [协议说明](doc/protocol.zh-CN.md)
 
 ## 里程碑

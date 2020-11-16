@@ -10,7 +10,7 @@ English | [简体中文](readme.md)
 ## Description
 
 - Simple and fast general purpose work queue.
-- Fully [Beanstalk](https://github.com/beanstalkd/beanstalkd) compatible task queue implemented by golang for learning
+- Fully [Beanstalk](https://github.com/beanstalkd/beanstalkd) compatible task queue implemented by golang
   purpose
 - [ProtocolDescription](doc/protocol.zh-CN.md)
 
