@@ -22,7 +22,7 @@ uninstall:
 run:
 	./${NAME} -b log
 test:
-	go test ./... -race -covermode=atomic
+	go test ./... -covermode=atomic
 clean:
 	rm -rf ${NAME}
 	rm -rf log
