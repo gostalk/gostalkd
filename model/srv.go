@@ -14,7 +14,7 @@
 package model
 
 import (
-	"github.com/sjatsh/beanstalkd-go/structure"
+	"github.com/gostalk/gostalkd/structure"
 )
 
 type ServerOptions struct {

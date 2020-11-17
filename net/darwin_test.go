@@ -21,7 +21,7 @@ import (
 	net2 "net"
 	"testing"
 
-	"github.com/sjatsh/beanstalkd-go/model"
+	"github.com/gostalk/gostalkd/model"
 )
 
 func TestSockWant(t *testing.T) {

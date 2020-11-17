@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/sjatsh/beanstalkd-go/constant"
+	"github.com/gostalk/gostalkd/constant"
 )
 
 // SysName

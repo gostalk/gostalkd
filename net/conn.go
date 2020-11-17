@@ -19,11 +19,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/sjatsh/beanstalkd-go/constant"
-	"github.com/sjatsh/beanstalkd-go/core"
-	"github.com/sjatsh/beanstalkd-go/model"
-	"github.com/sjatsh/beanstalkd-go/structure"
-	"github.com/sjatsh/beanstalkd-go/utils"
+	"github.com/gostalk/gostalkd/constant"
+	"github.com/gostalk/gostalkd/core"
+	"github.com/gostalk/gostalkd/model"
+	"github.com/gostalk/gostalkd/structure"
+	"github.com/gostalk/gostalkd/utils"
 )
 
 // MakeConn

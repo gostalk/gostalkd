@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/sjatsh/beanstalkd-go/structure"
+	"github.com/gostalk/gostalkd/structure"
 )
 
 type TestMs struct {

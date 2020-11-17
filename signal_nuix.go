@@ -20,7 +20,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/sjatsh/beanstalkd-go/model"
+	"github.com/gostalk/gostalkd/model"
 )
 
 // setSigHandlers

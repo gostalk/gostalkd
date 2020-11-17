@@ -18,7 +18,7 @@ package net
 import (
 	"time"
 
-	"github.com/sjatsh/beanstalkd-go/model"
+	"github.com/gostalk/gostalkd/model"
 )
 
 func init() {

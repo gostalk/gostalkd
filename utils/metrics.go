@@ -16,8 +16,8 @@ package utils
 import (
 	"time"
 
-	"github.com/sjatsh/beanstalkd-go/constant"
-	"github.com/sjatsh/beanstalkd-go/model"
+	"github.com/gostalk/gostalkd/constant"
+	"github.com/gostalk/gostalkd/model"
 )
 
 var (

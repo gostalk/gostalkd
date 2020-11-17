@@ -23,11 +23,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/sjatsh/beanstalkd-go/constant"
-	"github.com/sjatsh/beanstalkd-go/core"
-	"github.com/sjatsh/beanstalkd-go/model"
-	"github.com/sjatsh/beanstalkd-go/structure"
-	"github.com/sjatsh/beanstalkd-go/utils"
+	"github.com/gostalk/gostalkd/constant"
+	"github.com/gostalk/gostalkd/core"
+	"github.com/gostalk/gostalkd/model"
+	"github.com/gostalk/gostalkd/structure"
+	"github.com/gostalk/gostalkd/utils"
 )
 
 // NewServer 创建一个服务器
@@ -203,7 +203,7 @@ func hConn(c *model.Coon, which byte) {
 	connProcessIO(c)
 
 	// 读取命令并且处理
-	for ; commandDataReady(c); {
+	for commandDataReady(c) {
 		c.CmdLen = scanLineEnd(c.Cmd, c.CmdRead)
 		if c.CmdLen <= 0 {
 			break

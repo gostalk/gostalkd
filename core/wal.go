@@ -22,8 +22,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sjatsh/beanstalkd-go/model"
-	"github.com/sjatsh/beanstalkd-go/utils"
+	"github.com/gostalk/gostalkd/model"
+	"github.com/gostalk/gostalkd/utils"
 )
 
 // WalInit
@@ -43,8 +43,6 @@ func WalResvUpdate(w *model.Wal) int64 {
 	z += int64(binary.Size(model.JobRec{}))
 	return reserve(w, z)
 }
-
-
 
 func WalSync(w *model.Wal) {
 	now := time.Now().UnixNano()
@@ -131,7 +129,7 @@ func walScanDir(w *model.Wal) int64 {
 
 func walGc(w *model.Wal) {
 	var f *model.File
-	for ; w.Head != nil && w.Head.Refs <= 0; {
+	for w.Head != nil && w.Head.Refs <= 0 {
 		f = w.Head
 		w.Head = f.Next
 		if w.Tail == f {
@@ -287,7 +285,7 @@ func balanceRest(w *model.Wal, b *model.File, n int64) int64 {
 func balance(w *model.Wal, n int64) int64 {
 	// Invariant 1
 	// (this loop will run at most once)
-	for ; w.Cur.Resv < n; {
+	for w.Cur.Resv < n {
 		m := w.Cur.Resv
 		if needFree(w, m) != m {
 			utils.Log.Warnln("need free")

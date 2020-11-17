@@ -17,9 +17,9 @@ import (
 	"os"
 	"sync/atomic"
 
-	"github.com/sjatsh/beanstalkd-go/core"
-	"github.com/sjatsh/beanstalkd-go/model"
-	"github.com/sjatsh/beanstalkd-go/utils"
+	"github.com/gostalk/gostalkd/core"
+	"github.com/gostalk/gostalkd/model"
+	"github.com/gostalk/gostalkd/utils"
 )
 
 // sigIntTermHandle

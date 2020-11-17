@@ -14,7 +14,7 @@
 package utils
 
 import (
-	"github.com/sjatsh/beanstalkd-go/constant"
+	"github.com/gostalk/gostalkd/constant"
 )
 
 const nameCharts = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +

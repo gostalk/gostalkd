@@ -1,15 +1,16 @@
-## [beanstalkd-go](https://github.com/sjatsh/beanstalkd-go)
+## [beanstalkd-go](https://github.com/gostalk/gostalkd)
 
 [English](readme-en.md) | 简体中文
 
-[![Build Status](https://travis-ci.org/sjatsh/beanstalkd-go.svg?branch=main)](https://travis-ci.org/sjatsh/beanstalkd-go.svg?branch=main)
-[![codecov](https://codecov.io/gh/sjatsh/beanstalkd-go/branch/main/graph/badge.svg)](https://codecov.io/gh/sjatsh/beanstalkd-go)
-[![Release](https://img.shields.io/github/release/sjatsh/beanstalkd-go.svg?label=Release)](https://github.com/sjatsh/beanstalkd-go/releases)
-[![License](https://img.shields.io/github/license/sjatsh/beanstalkd-go)](https://github.com/sjatsh/beanstalkd-go)
+[![Build Status](https://travis-ci.org/gostalk/gostalkd.svg?branch=main)](https://travis-ci.org/gostalk/gostalkd.svg?branch=main)
+[![codecov](https://codecov.io/gh/sjatsh/beanstalkd-go/branch/main/graph/badge.svg)](https://codecov.io/gh/gostalk/gostalkd)
+[![Release](https://img.shields.io/github/release/gostalk/gostalkd.svg?label=Release)](https://github.com/gostalk/gostalkd/releases)
+[![License](https://img.shields.io/github/license/gostalk/gostalkd)](https://github.com/gostalk/gostalkd)
 
 ## 描述
 
 - 简单快速的通用工作队列
+- 完全兼容beanstalkd协议
 - 用golang完全实现了 [Beanstalk](https://github.com/beanstalkd/beanstalkd) 功能
 - [协议说明](doc/protocol.zh-CN.md)
 
@@ -23,7 +24,7 @@
 使用go get安装
 
 ```bash
-GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/sjatsh/beanstalkd-go
+GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/gostalk/gostalkd
 ```
 
 手动编译
@@ -38,11 +39,11 @@ make clean # 清除编译和运行结果
 查看支持命令
 
 ```bash
-./beanstalkd-go -h
+./gostalkd -h
 ```
 
 ```bash
-Usage of ./beanstalkd-go:
+Usage of ./gostalkd:
   -F    never fsync
   -L string
         set the log level, switch one in (panic, fatal, error, warn, waring, info, debug, trace) (default "warn")

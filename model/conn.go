@@ -17,7 +17,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/sjatsh/beanstalkd-go/structure"
+	"github.com/gostalk/gostalkd/structure"
 )
 
 // Socket socket连接信息 以及listener接口

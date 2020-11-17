@@ -18,9 +18,9 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/sjatsh/beanstalkd-go/model"
-	"github.com/sjatsh/beanstalkd-go/net"
-	"github.com/sjatsh/beanstalkd-go/utils"
+	"github.com/gostalk/gostalkd/model"
+	"github.com/gostalk/gostalkd/net"
+	"github.com/gostalk/gostalkd/utils"
 )
 
 var version string

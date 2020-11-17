@@ -20,8 +20,8 @@ import (
 
 	"github.com/edoger/zkits-logger"
 
-	"github.com/sjatsh/beanstalkd-go/constant"
-	"github.com/sjatsh/beanstalkd-go/model"
+	"github.com/gostalk/gostalkd/constant"
+	"github.com/gostalk/gostalkd/model"
 )
 
 var (
