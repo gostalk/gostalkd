@@ -3,7 +3,7 @@
 [English](readme-en.md) | 简体中文
 
 [![Build Status](https://travis-ci.org/gostalk/gostalkd.svg?branch=main)](https://travis-ci.org/gostalk/gostalkd.svg?branch=main)
-[![codecov](https://codecov.io/gh/sjatsh/beanstalkd-go/branch/main/graph/badge.svg)](https://codecov.io/gh/gostalk/gostalkd)
+[![codecov](https://codecov.io/gh/gostalk/gostalkd/branch/main/graph/badge.svg)](https://codecov.io/gh/gostalk/gostalkd)
 [![Release](https://img.shields.io/github/release/gostalk/gostalkd.svg?label=Release)](https://github.com/gostalk/gostalkd/releases)
 [![License](https://img.shields.io/github/license/gostalk/gostalkd)](https://github.com/gostalk/gostalkd)
 
