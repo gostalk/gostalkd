@@ -1,4 +1,4 @@
-NAME=beanstalkd-go
+NAME=gostalkd
 VERSION=$(shell ./vers.sh)
 GOHOSTOS=$(shell go env GOHOSTOS)
 
