@@ -15,7 +15,6 @@ package core
 
 import (
 	"fmt"
-	"sync/atomic"
 
 	"github.com/gostalk/gostalkd/constant"
 	"github.com/gostalk/gostalkd/model"
@@ -101,7 +100,7 @@ func NextAwaitedJob(now int64) *model.Job {
 			if t.UnpauseAt > now {
 				return false, nil
 			}
-			atomic.StoreInt64(&t.Pause, 0)
+			t.Pause = 0
 		}
 		if t.WaitingConns.Len() > 0 && t.Ready.Len() > 0 {
 			candidate := t.Ready.Take()

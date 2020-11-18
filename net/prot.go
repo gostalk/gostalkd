@@ -1176,17 +1176,19 @@ func processQueue() {
 // enqueueJob
 func enqueueJob(s *model.Server, j *model.Job, delay int64, updateStore bool) int {
 	j.Reservoir = nil
+	// 大于0放入延时堆
 	if delay > 0 {
+		j.R.State = constant.Delayed
 		j.R.DeadlineAt = time.Now().UnixNano() + delay
 		if !j.Tube.Delay.Push(&structure.Item{Value: j}) {
 			return 0
 		}
-		j.R.State = constant.Delayed
 	} else {
+		// 放入ready堆
+		j.R.State = constant.Ready
 		if !j.Tube.Ready.Push(&structure.Item{Value: j}) {
 			return 0
 		}
-		j.R.State = constant.Ready
 		utils.ReadyCt++
 		if j.R.Pri < constant.UrgentThreshold {
 			utils.GlobalState.UrgentCt++

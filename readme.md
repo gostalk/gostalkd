@@ -1,4 +1,4 @@
-## [beanstalkd-go](https://github.com/gostalk/gostalkd)
+## [gostalkd](https://github.com/gostalk/gostalkd)
 
 [English](readme-en.md) | 简体中文
 

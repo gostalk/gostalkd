@@ -32,13 +32,13 @@ func NewConn(f *os.File, startState int, use, watch *model.Tube) *model.Coon {
 		ReservedJobs: core.NewJob(),
 	}
 	w := structure.NewMs()
-	c.Watch = w
-
 	w.WithInsertEventFn(onWatch)
 	w.WithDelEventFn(onIgnore)
 	w.Append(watch)
 
+	c.Watch = w
 	c.Use = use
+
 	use.UsingCt++
 
 	c.Sock.F = f
@@ -51,8 +51,6 @@ func NewConn(f *os.File, startState int, use, watch *model.Tube) *model.Coon {
 	c.PendingTimeout = -1
 	c.TickPos = 0
 	c.InCoons = 0
-
-	core.JobListRest(c.ReservedJobs)
 
 	utils.CurConnCt++
 	utils.TotalConnCt++

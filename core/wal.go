@@ -44,6 +44,7 @@ func WalResvUpdate(w *model.Wal) int64 {
 	return reserve(w, z)
 }
 
+// WalSync 文件sync
 func WalSync(w *model.Wal) {
 	now := time.Now().UnixNano()
 	if !w.WantSync || now < w.LastSync+w.SyncRate {
@@ -54,6 +55,7 @@ func WalSync(w *model.Wal) {
 	}
 }
 
+// WalWrite write job to wal
 func WalWrite(w *model.Wal, j *model.Job) bool {
 	ok := false
 	if !w.Use {
@@ -75,11 +77,78 @@ func WalWrite(w *model.Wal, j *model.Job) bool {
 	return ok
 }
 
+// WalMain 文件压缩和sync
 func WalMain(w *model.Wal) {
 	if w.Use {
 		walCompact(w)
 		WalSync(w)
 	}
+}
+
+func walCompact(w *model.Wal) {
+	for r := ratio(w); r >= 2; r-- {
+		moveOne(w)
+	}
+}
+
+func moveOne(w *model.Wal) {
+	var j *model.Job
+	if w.Head == w.Cur || w.Head.Next == w.Cur {
+		return
+	}
+
+	j = w.Head.JobList.FNext
+	if j == nil || j == &w.Head.JobList {
+		utils.Log.Warnln("head holds no JobList")
+		return
+	}
+
+	if walResvMigrate(w, j) <= 0 {
+		return
+	}
+
+	// 该job从第一个文件中移除
+	FileRmJob(w.Head, j)
+	w.Nmig++
+	// 写入当前指针指向文件
+	WalWrite(w, j)
+}
+
+func walResvMigrate(w *model.Wal, j *model.Job) int64 {
+	z := int64(binary.Size(int64(1)))
+	z += int64(len(j.Tube.Name))
+	z += int64(binary.Size(j.R))
+	z += j.R.BodySize
+	return reserve(w, z)
+}
+
+func reserve(w *model.Wal, n int64) int64 {
+	if !w.Use {
+		return 1
+	}
+	if w.Cur.Free >= n {
+		w.Cur.Free -= n
+		w.Cur.Resv += n
+		w.Resv += n
+		return n
+	}
+
+	if needFree(w, n) != n {
+		utils.Log.Warnln("need free")
+		return 0
+	}
+
+	w.Tail.Free -= n
+	w.Tail.Resv += n
+	w.Resv += n
+
+	if balance(w, n) == 0 {
+		w.Resv -= n
+		w.Tail.Resv -= n
+		w.Tail.Free += n
+		return 0
+	}
+	return n
 }
 
 // walScanDir
@@ -166,41 +235,6 @@ func ratio(w *model.Wal) int64 {
 	return n / d
 }
 
-func walResvMigrate(w *model.Wal, j *model.Job) int64 {
-	z := int64(binary.Size(int64(1)))
-	z += int64(len(j.Tube.Name))
-	z += int64(binary.Size(j.R))
-	z += j.R.BodySize
-	return reserve(w, z)
-}
-
-func moveOne(w *model.Wal) {
-	var j *model.Job
-	if w.Head == w.Cur || w.Head.Next == w.Cur {
-		return
-	}
-
-	j = w.Head.JobList.FNext
-	if j == nil || j == &w.Head.JobList {
-		utils.Log.Warnln("head holds no JobList")
-		return
-	}
-
-	if walResvMigrate(w, j) <= 0 {
-		return
-	}
-
-	FileRmJob(w.Head, j)
-	w.Nmig++
-	WalWrite(w, j)
-}
-
-func walCompact(w *model.Wal) {
-	for r := ratio(w); r >= 2; r-- {
-		moveOne(w)
-	}
-}
-
 func makeNextFile(w *model.Wal) bool {
 	f := &model.File{}
 	if !fileInit(f, w, w.Next) {
@@ -238,6 +272,32 @@ func needFree(w *model.Wal, n int64) int64 {
 }
 
 // Ensures:
+//  1. w->cur->resv >= n.
+//  2. w->cur->resv is congruent to n (mod z).
+//  3. x->resv is congruent to 0 (mod z) for each future file x.
+// (where z is the size of a delete record in the wal).
+// Reserved space is conserved (neither created nor destroyed);
+// we just move it around to preserve the invariant.
+// We might have to allocate a new file.
+// Returns 1 on success, otherwise 0. If there was a failure,
+// w->tail is not updated.
+func balance(w *model.Wal, n int64) int64 {
+	// Invariant 1
+	// (this loop will run at most once)
+	for w.Cur.Resv < n {
+		m := w.Cur.Resv
+		if needFree(w, m) != m {
+			utils.Log.Warnln("need free")
+			return 0
+		}
+
+		moveResv(w.Tail, w.Cur, m)
+		useNext(w)
+	}
+	return balanceRest(w, w.Cur, n)
+}
+
+// Ensures:
 //  1. b->resv is congruent to n (mod z).
 //  2. x->resv is congruent to 0 (mod z) for each future file x.
 // Assumes (and preserves) that b->resv >= n.
@@ -270,61 +330,6 @@ func balanceRest(w *model.Wal, b *model.File, n int64) int64 {
 	}
 	moveResv(w.Tail, b, r)
 	return balanceRest(w, b.Next, 0)
-}
-
-// Ensures:
-//  1. w->cur->resv >= n.
-//  2. w->cur->resv is congruent to n (mod z).
-//  3. x->resv is congruent to 0 (mod z) for each future file x.
-// (where z is the size of a delete record in the wal).
-// Reserved space is conserved (neither created nor destroyed);
-// we just move it around to preserve the invariant.
-// We might have to allocate a new file.
-// Returns 1 on success, otherwise 0. If there was a failure,
-// w->tail is not updated.
-func balance(w *model.Wal, n int64) int64 {
-	// Invariant 1
-	// (this loop will run at most once)
-	for w.Cur.Resv < n {
-		m := w.Cur.Resv
-		if needFree(w, m) != m {
-			utils.Log.Warnln("need free")
-			return 0
-		}
-
-		moveResv(w.Tail, w.Cur, m)
-		useNext(w)
-	}
-	return balanceRest(w, w.Cur, n)
-}
-
-func reserve(w *model.Wal, n int64) int64 {
-	if !w.Use {
-		return 1
-	}
-	if w.Cur.Free >= n {
-		w.Cur.Free -= n
-		w.Cur.Resv += n
-		w.Resv += n
-		return n
-	}
-
-	if needFree(w, n) != n {
-		utils.Log.Warnln("need free")
-		return 0
-	}
-
-	w.Tail.Free -= n
-	w.Tail.Resv += n
-	w.Resv += n
-
-	if balance(w, n) == 0 {
-		w.Resv -= n
-		w.Tail.Resv -= n
-		w.Tail.Free += n
-		return 0
-	}
-	return n
 }
 
 // WalResvPut

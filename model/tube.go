@@ -21,10 +21,10 @@ type Tube struct {
 	Name         string
 	Ready        *structure.Heap
 	Delay        *structure.Heap
-	WaitingConns *structure.Ms
-	Stat         State // job各个状态统计
-	UsingCt      int   // tube正在被多少coon监听
-	WatchingCt   int   // tube上watching的coon
+	WaitingConns *structure.Ms // 等待在该tube上的客户端连接
+	Stat         State         // job各个状态统计
+	UsingCt      int           // tube正在被多少coon监听
+	WatchingCt   int           // tube上watching的coon
 
 	Pause     int64 // 暂停时间，单位nsec，pause-tube 命令设置
 	UnpauseAt int64 // 暂停结束时间的时间戳
