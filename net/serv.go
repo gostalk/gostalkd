@@ -21,7 +21,6 @@ import (
 	"net"
 	"os"
 	"strings"
-	"sync/atomic"
 
 	"github.com/gostalk/gostalkd/constant"
 	"github.com/gostalk/gostalkd/core"
@@ -295,7 +294,7 @@ func connProcessIO(c *model.Coon) {
 		c.InJobRead += int64(r)
 		maybeEnqueueInComingJob(c)
 	case constant.StateSendWord:
-		replySend := c.Reply[c.ReplySent : c.ReplySent+c.ReplyLen-c.ReplySent]
+		replySend := c.Reply[c.ReplySent : c.ReplyLen-c.ReplySent]
 		r, err := c.Sock.F.Write(replySend)
 		if err != nil && err != io.EOF {
 			return
@@ -384,8 +383,7 @@ func enqueueInComingJob(c *model.Coon) {
 		return
 	}
 
-	drainMode := atomic.LoadInt64(&utils.DrainMode)
-	if drainMode > 0 {
+	if utils.DrainMode > 0 {
 		core.JobFree(j)
 		replyErr(c, constant.MsgDraining)
 		return
