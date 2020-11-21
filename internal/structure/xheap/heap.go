@@ -50,9 +50,9 @@ func (item *Item) Set(v interface{}) {
 
 // XHeap
 type XHeap struct {
+	sync.RWMutex
 	h    *mHeap
 	lock bool
-	l    *sync.RWMutex
 }
 
 // LessFn
@@ -66,7 +66,6 @@ func NewXHeap() *XHeap {
 	return &XHeap{
 		h:    h,
 		lock: true,
-		l:    &sync.RWMutex{},
 	}
 }
 
@@ -82,8 +81,8 @@ func (h *XHeap) SetLessFn(less LessFn) *XHeap {
 
 func (h *XHeap) Push(items ...*Item) {
 	if h.lock {
-		h.l.Lock()
-		defer h.l.Unlock()
+		h.Lock()
+		defer h.Unlock()
 	}
 	for _, item := range items {
 		if item == nil {
@@ -95,8 +94,8 @@ func (h *XHeap) Push(items ...*Item) {
 
 func (h *XHeap) Pop() *Item {
 	if h.lock {
-		h.l.Lock()
-		defer h.l.Unlock()
+		h.Lock()
+		defer h.Unlock()
 	}
 	l := len(h.h.items)
 	if l == 0 {
@@ -115,8 +114,8 @@ func (h *XHeap) Take(idx ...int) *Item {
 		return nil
 	}
 	if h.lock {
-		h.l.RLock()
-		defer h.l.RUnlock()
+		h.RLock()
+		defer h.RUnlock()
 	}
 	if i >= len(h.h.items) {
 		return nil
@@ -130,8 +129,8 @@ func (h *XHeap) Fix(idx int) {
 		return
 	}
 	if h.lock {
-		h.l.Lock()
-		defer h.l.Unlock()
+		h.Lock()
+		defer h.Unlock()
 	}
 	if idx >= len(h.h.items) {
 		return
@@ -144,8 +143,8 @@ func (h *XHeap) RemoveWithIdx(idx int) *Item {
 		return nil
 	}
 	if h.lock {
-		h.l.Lock()
-		defer h.l.Unlock()
+		h.Lock()
+		defer h.Unlock()
 	}
 	if idx >= len(h.h.items) {
 		return nil
@@ -159,8 +158,8 @@ func (h *XHeap) RemoveWithItem(item *Item) *Item {
 		return nil
 	}
 	if h.lock {
-		h.l.Lock()
-		defer h.l.Unlock()
+		h.Lock()
+		defer h.Unlock()
 	}
 	if item.index >= len(h.h.items) {
 		return nil
@@ -171,8 +170,8 @@ func (h *XHeap) RemoveWithItem(item *Item) *Item {
 
 func (h *XHeap) Len() int {
 	if h.lock {
-		h.l.RLock()
-		defer h.l.RUnlock()
+		h.RLock()
+		defer h.RUnlock()
 	}
 	l := len(h.h.items)
 	return l

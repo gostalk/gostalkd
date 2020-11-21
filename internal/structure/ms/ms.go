@@ -21,7 +21,7 @@ import (
 type Ms struct {
 	last int
 	lock bool
-	l    *sync.RWMutex
+	sync.RWMutex
 
 	items []interface{}
 
@@ -36,7 +36,6 @@ func NewMs(items ...interface{}) *Ms {
 	return &Ms{
 		items: items,
 		lock:  true,
-		l:     &sync.RWMutex{},
 	}
 }
 
@@ -56,8 +55,8 @@ func (m *Ms) WithDelFn(fn EventFn) *Ms {
 
 func (m *Ms) Len() int {
 	if m.lock {
-		m.l.RLock()
-		defer m.l.RUnlock()
+		m.RLock()
+		defer m.RUnlock()
 	}
 	l := len(m.items)
 	return l
@@ -65,8 +64,8 @@ func (m *Ms) Len() int {
 
 func (m *Ms) Iterator(fn func(item interface{}) bool) {
 	if m.lock {
-		m.l.RLock()
-		defer m.l.RUnlock()
+		m.RLock()
+		defer m.RUnlock()
 	}
 	for _, v := range m.items {
 		if ok := fn(v); !ok {
@@ -77,8 +76,8 @@ func (m *Ms) Iterator(fn func(item interface{}) bool) {
 
 func (m *Ms) Append(items ...interface{}) int {
 	if m.lock {
-		m.l.Lock()
-		defer m.l.Unlock()
+		m.Lock()
+		defer m.Unlock()
 	}
 	m.items = append(m.items, items...)
 	l := len(m.items)
@@ -95,8 +94,8 @@ func (m *Ms) Take() interface{} {
 		return nil
 	}
 	if m.lock {
-		m.l.Lock()
-		defer m.l.Unlock()
+		m.Lock()
+		defer m.Unlock()
 	}
 	m.last = m.last % len(m.items)
 	item := m.items[m.last]
@@ -113,8 +112,8 @@ func (m *Ms) DeleteWithIdx(idx int) interface{} {
 		return nil
 	}
 	if m.lock {
-		m.l.Lock()
-		defer m.l.Unlock()
+		m.Lock()
+		defer m.Unlock()
 	}
 	if idx >= len(m.items) {
 		return nil
@@ -132,8 +131,8 @@ func (m *Ms) DeleteWithItem(item interface{}) bool {
 		return false
 	}
 	if m.lock {
-		m.l.Lock()
-		defer m.l.Unlock()
+		m.Lock()
+		defer m.Unlock()
 	}
 	for i := 0; i < len(m.items); i++ {
 		if item == m.items[i] {
@@ -150,8 +149,8 @@ func (m *Ms) DeleteWithItem(item interface{}) bool {
 
 func (m *Ms) Contains(item interface{}) bool {
 	if m.lock {
-		m.l.RLock()
-		defer m.l.RUnlock()
+		m.RLock()
+		defer m.RUnlock()
 	}
 	for i := 0; i < len(m.items); i++ {
 		if item == m.items[i] {
@@ -163,8 +162,8 @@ func (m *Ms) Contains(item interface{}) bool {
 
 func (m *Ms) Clean() {
 	if m.lock {
-		m.l.Lock()
-		defer m.l.Unlock()
+		m.Lock()
+		defer m.Unlock()
 	}
 	m.last = 0
 	m.items = []interface{}{}
