@@ -1,0 +1,4 @@
+github.com/edoger/zkits-logger v1.1.1 h1:Rnhrxv0WOWmgGdjE1sXN7JDMGe33dRhDI6JQj5pLFso=
+github.com/edoger/zkits-logger v1.1.1/go.mod h1:iAAiekxY58751+gf42x2E6R2KmiVD1dqqxX2nIydrLo=
+github.com/edoger/zkits-runner v1.2.0 h1:Dz8gGjim6j7DeEd0OWOmg33PbiwEgTOFJGFaglueZCE=
+github.com/edoger/zkits-runner v1.2.0/go.mod h1:+W0K82w1/Od9CvDPMHDh2deoTUXEpf/MRqPzZ3wyhZI=
