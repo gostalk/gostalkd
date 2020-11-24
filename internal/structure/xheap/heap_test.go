@@ -24,101 +24,110 @@ import (
 
 type TestHeapValue struct {
 	A   string
-	pri int
+	pri int64
+	Idx int
+}
+
+func (t *TestHeapValue) Priority() int64 {
+	return t.pri
+}
+
+func (t *TestHeapValue) SetIndex(idx int) {
+	t.Idx = idx
+}
+
+func (t *TestHeapValue) Value() interface{} {
+	return t.A
+}
+
+func (t *TestHeapValue) Index() int {
+	return t.Idx
 }
 
 func TestNewItem(t *testing.T) {
-	xheap.NewItem(1)
+	xheap.NewXHeap().Lock().Push(&TestHeapValue{})
 }
 
 func TestXHeap_NoLock(t *testing.T) {
-	xheap.NewXHeap().NoLock()
+	h := xheap.NewXHeap().NoLock()
+	assert.Equal(t, h.LockModel(), false)
+}
+
+func TestXHeap_Lock(t *testing.T) {
+	h := xheap.NewXHeap().Lock()
+	assert.Equal(t, h.LockModel(), true)
 }
 
 func TestItem_Index(t *testing.T) {
-	assert.Equal(t, xheap.NewItem(1).Index(), 0)
-}
-
-func TestItem_Value(t *testing.T) {
-	assert.Equal(t, xheap.NewItem(1).Value(), 1)
+	item1 := &TestHeapValue{pri: 0}
+	item2 := &TestHeapValue{pri: 1}
+	xheap.NewXHeap().Lock().Push(item1, item2)
+	assert.Equal(t, item2.Index(), 1)
 }
 
 func TestItem_Set(t *testing.T) {
-	item := xheap.NewItem(1)
-	assert.Equal(t, item.Value(), 1)
+	item := &TestHeapValue{A: "1"}
+	xheap.NewXHeap().Lock().Push(item)
 
-	item.Set(2)
-	assert.Equal(t, item.Value(), 2)
+	assert.Equal(t, item.A, "1")
+	item.A = "2"
+	assert.Equal(t, item.A, "2")
 }
 
 func TestHeap_Push(t *testing.T) {
-	h := xheap.NewXHeap()
-	h.SetLessFn(func(i, j *xheap.Item) bool {
-		return i.Value().(*TestHeapValue).pri < j.Value().(*TestHeapValue).pri
-	})
-
-	h.Push(xheap.NewItem(&TestHeapValue{
+	h := xheap.NewXHeap().Lock()
+	h.Push(&TestHeapValue{
 		A:   "v1",
 		pri: 1,
-	}))
+	})
 	h.Push(nil)
 }
 
 func TestHeap_Pop(t *testing.T) {
-	h := xheap.NewXHeap()
-	h.SetLessFn(func(i, j *xheap.Item) bool {
-		return i.Value().(*TestHeapValue).pri < j.Value().(*TestHeapValue).pri
-	})
-
-	h.Push(xheap.NewItem(&TestHeapValue{
+	h := xheap.NewXHeap().Lock()
+	h.Push(&TestHeapValue{
 		A:   "v1",
 		pri: 1,
-	}))
-	v1 := h.Pop()
-	t.Logf("value: %#v, index=%d", v1.Value(), v1.Index())
+	})
+	v := h.Pop()
+	t.Logf("value: %#v, index=%d", v, v.Index())
 
 	assert.Nil(t, h.Pop())
 }
 
 func TestHeap_Take(t *testing.T) {
-	h := xheap.NewXHeap()
-	h.SetLessFn(func(i, j *xheap.Item) bool {
-		return i.Value().(*TestHeapValue).pri < j.Value().(*TestHeapValue).pri
-	})
-
-	v1 := xheap.NewItem(&TestHeapValue{
+	h := xheap.NewXHeap().Lock()
+	v1 := &TestHeapValue{
 		A:   "v1",
 		pri: 1,
-	})
-	v2 := xheap.NewItem(&TestHeapValue{
+	}
+	v2 := &TestHeapValue{
 		A:   "v2",
 		pri: 2,
-	})
-
+	}
 	h.Push(v1, v2)
+
 	assert.Equal(t, h.Take(), v1)
 	assert.Nil(t, h.Take(-1))
 	assert.Nil(t, h.Take(2))
 }
 
 func TestXHeap_Fix(t *testing.T) {
-	h := xheap.NewXHeap().SetLessFn(func(i, j *xheap.Item) bool {
-		return i.Value().(*TestHeapValue).pri < j.Value().(*TestHeapValue).pri
-	})
-
-	i1 := xheap.NewItem(&TestHeapValue{
+	h := xheap.NewXHeap().Lock()
+	i1 := &TestHeapValue{
 		A:   "v1",
 		pri: 1,
-	})
-	i2 := xheap.NewItem(&TestHeapValue{
+	}
+	i2 := &TestHeapValue{
 		A:   "v2",
 		pri: 2,
-	})
+	}
 	h.Push(i1, i2)
 
 	assert.Equal(t, h.Take(), i1)
 
-	i1.Value().(*TestHeapValue).pri = 3
+	i1.pri = 3
+
 	h.Fix(0)
 	h.Fix(-1)
 	h.Fix(2)
@@ -127,49 +136,24 @@ func TestXHeap_Fix(t *testing.T) {
 }
 
 func TestXHeap_RemoveWithIdx(t *testing.T) {
-	h := xheap.NewXHeap()
-	h.SetLessFn(func(i, j *xheap.Item) bool {
-		return i.Value().(*TestHeapValue).pri < j.Value().(*TestHeapValue).pri
-	})
-
-	v1 := xheap.NewItem(&TestHeapValue{
+	h := xheap.NewXHeap().Lock()
+	v1 := &TestHeapValue{
 		A:   "v1",
 		pri: 1,
-	})
+	}
 	h.Push(v1)
 
-	assert.Equal(t, h.RemoveWithIdx(0), v1)
-	assert.Nil(t, h.RemoveWithIdx(0))
-	assert.Nil(t, h.RemoveWithIdx(-1))
-}
-
-func TestXHeap_RemoveWithItem(t *testing.T) {
-	h := xheap.NewXHeap()
-	h.SetLessFn(func(i, j *xheap.Item) bool {
-		return i.Value().(*TestHeapValue).pri < j.Value().(*TestHeapValue).pri
-	})
-
-	v1 := xheap.NewItem(&TestHeapValue{
-		A:   "v1",
-		pri: 1,
-	})
-	h.Push(v1)
-
-	assert.Equal(t, h.RemoveWithItem(v1), v1)
-	assert.Nil(t, h.RemoveWithItem(v1))
-	assert.Nil(t, h.RemoveWithItem(nil))
+	assert.Equal(t, h.RemoveByIdx(0), v1)
+	assert.Nil(t, h.RemoveByIdx(0))
+	assert.Nil(t, h.RemoveByIdx(-1))
 }
 
 func TestHeap_Len(t *testing.T) {
-	h := xheap.NewXHeap()
-	h.SetLessFn(func(i, j *xheap.Item) bool {
-		return i.Value().(*TestHeapValue).pri < j.Value().(*TestHeapValue).pri
-	})
-
-	v1 := xheap.NewItem(&TestHeapValue{
+	h := xheap.NewXHeap().Lock()
+	v1 := &TestHeapValue{
 		A:   "v1",
 		pri: 1,
-	})
+	}
 	h.Push(v1)
 
 	assert.Equal(t, h.Len(), 1)

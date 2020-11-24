@@ -21,7 +21,7 @@ import (
 type Ms struct {
 	last int
 	lock bool
-	sync.RWMutex
+	l    sync.RWMutex
 
 	items []interface{}
 
@@ -35,37 +35,47 @@ type EventFn func(ms *Ms, item interface{}, i int)
 func NewMs(items ...interface{}) *Ms {
 	return &Ms{
 		items: items,
-		lock:  true,
+		lock:  false,
 	}
 }
 
+// NoLock
 func (m *Ms) NoLock() {
 	m.lock = false
 }
 
+// Lock
+func (m *Ms) Lock() {
+	m.lock = true
+}
+
+// WithInsertFn
 func (m *Ms) WithInsertFn(fn EventFn) *Ms {
 	m.onInsert = &fn
 	return m
 }
 
+// WithDelFn
 func (m *Ms) WithDelFn(fn EventFn) *Ms {
 	m.onRemove = &fn
 	return m
 }
 
+// Len
 func (m *Ms) Len() int {
 	if m.lock {
-		m.RLock()
-		defer m.RUnlock()
+		m.l.RLock()
+		defer m.l.RUnlock()
 	}
 	l := len(m.items)
 	return l
 }
 
+// Iterator
 func (m *Ms) Iterator(fn func(item interface{}) bool) {
 	if m.lock {
-		m.RLock()
-		defer m.RUnlock()
+		m.l.RLock()
+		defer m.l.RUnlock()
 	}
 	for _, v := range m.items {
 		if ok := fn(v); !ok {
@@ -74,10 +84,11 @@ func (m *Ms) Iterator(fn func(item interface{}) bool) {
 	}
 }
 
+// Append
 func (m *Ms) Append(items ...interface{}) int {
 	if m.lock {
-		m.Lock()
-		defer m.Unlock()
+		m.l.Lock()
+		defer m.l.Unlock()
 	}
 	m.items = append(m.items, items...)
 	l := len(m.items)
@@ -89,13 +100,14 @@ func (m *Ms) Append(items ...interface{}) int {
 	return l
 }
 
+// Take
 func (m *Ms) Take() interface{} {
 	if len(m.items) == 0 {
 		return nil
 	}
 	if m.lock {
-		m.Lock()
-		defer m.Unlock()
+		m.l.Lock()
+		defer m.l.Unlock()
 	}
 	m.last = m.last % len(m.items)
 	item := m.items[m.last]
@@ -107,13 +119,14 @@ func (m *Ms) Take() interface{} {
 	return item
 }
 
+// DeleteWithIdx
 func (m *Ms) DeleteWithIdx(idx int) interface{} {
 	if idx < 0 {
 		return nil
 	}
 	if m.lock {
-		m.Lock()
-		defer m.Unlock()
+		m.l.Lock()
+		defer m.l.Unlock()
 	}
 	if idx >= len(m.items) {
 		return nil
@@ -126,13 +139,14 @@ func (m *Ms) DeleteWithIdx(idx int) interface{} {
 	return item
 }
 
+// DeleteWithItem
 func (m *Ms) DeleteWithItem(item interface{}) bool {
 	if item == nil {
 		return false
 	}
 	if m.lock {
-		m.Lock()
-		defer m.Unlock()
+		m.l.Lock()
+		defer m.l.Unlock()
 	}
 	for i := 0; i < len(m.items); i++ {
 		if item == m.items[i] {
@@ -147,10 +161,11 @@ func (m *Ms) DeleteWithItem(item interface{}) bool {
 	return false
 }
 
+// Contains
 func (m *Ms) Contains(item interface{}) bool {
 	if m.lock {
-		m.RLock()
-		defer m.RUnlock()
+		m.l.RLock()
+		defer m.l.RUnlock()
 	}
 	for i := 0; i < len(m.items); i++ {
 		if item == m.items[i] {
@@ -160,10 +175,11 @@ func (m *Ms) Contains(item interface{}) bool {
 	return false
 }
 
+// Clean
 func (m *Ms) Clean() {
 	if m.lock {
-		m.Lock()
-		defer m.Unlock()
+		m.l.Lock()
+		defer m.l.Unlock()
 	}
 	m.last = 0
 	m.items = []interface{}{}

@@ -19,70 +19,48 @@ import (
 	"sync"
 )
 
-// An Item is something we manage in a priority queue.
-type Item struct {
-	value interface{} // The value of the item; arbitrary.
-	// The index is needed by update and is maintained by the heap.Interface methods.
-	index int // The index of the item in the heap.
-}
-
-// NewItem
-func NewItem(v interface{}) *Item {
-	return &Item{
-		value: v,
-	}
-}
-
-// Index
-func (item *Item) Index() int {
-	return item.index
-}
-
-// Value
-func (item *Item) Value() interface{} {
-	return item.value
-}
-
-// Set
-func (item *Item) Set(v interface{}) {
-	item.value = v
-}
-
 // XHeap
 type XHeap struct {
-	sync.RWMutex
+	l    sync.RWMutex
 	h    *mHeap
 	lock bool
 }
 
-// LessFn
-type LessFn func(i, j *Item) bool
+// HeapItem
+type HeapItem interface {
+	Priority() int64
+	SetIndex(int)
+	Index() int
+}
 
 // NewXHeap create a min or max heap
 func NewXHeap() *XHeap {
 	h := &mHeap{
-		items: []*Item{},
+		items: []HeapItem{},
 	}
 	return &XHeap{
-		h:    h,
-		lock: true,
+		h: h,
 	}
 }
 
-func (h *XHeap) NoLock() {
+func (h *XHeap) NoLock() *XHeap {
 	h.lock = false
-}
-
-// SetLessFn
-func (h *XHeap) SetLessFn(less LessFn) *XHeap {
-	h.h.less = &less
 	return h
 }
 
-func (h *XHeap) Push(items ...*Item) {
+func (h *XHeap) Lock() *XHeap {
+	h.lock = true
+	return h
+}
+
+func (h *XHeap) LockModel() bool {
+	return h.lock
+}
+
+func (h *XHeap) Push(items ...HeapItem) {
 	if h.lock {
-		h.Lock()
-		defer h.Unlock()
+		h.l.Lock()
+		defer h.l.Unlock()
 	}
 	for _, item := range items {
 		if item == nil {
@@ -92,20 +70,20 @@ func (h *XHeap) Push(items ...*Item) {
 	}
 }
 
-func (h *XHeap) Pop() *Item {
+func (h *XHeap) Pop() HeapItem {
 	if h.lock {
-		h.Lock()
-		defer h.Unlock()
+		h.l.Lock()
+		defer h.l.Unlock()
 	}
 	l := len(h.h.items)
 	if l == 0 {
 		return nil
 	}
 	hi := heap.Pop(h.h)
-	return hi.(*Item)
+	return hi.(HeapItem)
 }
 
-func (h *XHeap) Take(idx ...int) *Item {
+func (h *XHeap) Take(idx ...int) HeapItem {
 	i := 0
 	if len(idx) > 0 {
 		i = idx[0]
@@ -114,8 +92,8 @@ func (h *XHeap) Take(idx ...int) *Item {
 		return nil
 	}
 	if h.lock {
-		h.RLock()
-		defer h.RUnlock()
+		h.l.RLock()
+		defer h.l.RUnlock()
 	}
 	if i >= len(h.h.items) {
 		return nil
@@ -129,8 +107,8 @@ func (h *XHeap) Fix(idx int) {
 		return
 	}
 	if h.lock {
-		h.Lock()
-		defer h.Unlock()
+		h.l.Lock()
+		defer h.l.Unlock()
 	}
 	if idx >= len(h.h.items) {
 		return
@@ -138,40 +116,25 @@ func (h *XHeap) Fix(idx int) {
 	heap.Fix(h.h, idx)
 }
 
-func (h *XHeap) RemoveWithIdx(idx int) *Item {
+func (h *XHeap) RemoveByIdx(idx int) HeapItem {
 	if idx < 0 {
 		return nil
 	}
 	if h.lock {
-		h.Lock()
-		defer h.Unlock()
+		h.l.Lock()
+		defer h.l.Unlock()
 	}
 	if idx >= len(h.h.items) {
 		return nil
 	}
 	hi := heap.Remove(h.h, idx)
-	return hi.(*Item)
-}
-
-func (h *XHeap) RemoveWithItem(item *Item) *Item {
-	if item == nil || item.index < 0 {
-		return nil
-	}
-	if h.lock {
-		h.Lock()
-		defer h.Unlock()
-	}
-	if item.index >= len(h.h.items) {
-		return nil
-	}
-	hi := heap.Remove(h.h, item.index)
-	return hi.(*Item)
+	return hi.(HeapItem)
 }
 
 func (h *XHeap) Len() int {
 	if h.lock {
-		h.RLock()
-		defer h.RUnlock()
+		h.l.RLock()
+		defer h.l.RUnlock()
 	}
 	l := len(h.h.items)
 	return l
@@ -179,8 +142,7 @@ func (h *XHeap) Len() int {
 
 // A mHeap implements heap.Interface and holds Items.
 type mHeap struct {
-	items []*Item
-	less  *LessFn
+	items []HeapItem
 }
 
 func (h mHeap) Len() int {
@@ -188,19 +150,19 @@ func (h mHeap) Len() int {
 }
 
 func (h mHeap) Less(i, j int) bool {
-	return (*h.less)(h.items[i], h.items[j])
+	return h.items[i].Priority() < h.items[j].Priority()
 }
 
 func (h mHeap) Swap(i, j int) {
 	h.items[i], h.items[j] = h.items[j], h.items[i]
-	h.items[i].index = i
-	h.items[j].index = j
+	h.items[i].SetIndex(i)
+	h.items[j].SetIndex(j)
 }
 
 func (h *mHeap) Push(x interface{}) {
 	n := len(h.items)
-	x.(*Item).index = n
-	h.items = append(h.items, x.(*Item))
+	x.(HeapItem).SetIndex(n)
+	h.items = append(h.items, x.(HeapItem))
 }
 
 func (h *mHeap) Pop() interface{} {
