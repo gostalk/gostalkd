@@ -15,7 +15,10 @@
 package network
 
 import (
+	"bytes"
 	"io"
+	"net"
+	"sync"
 )
 
 type Reply interface {
@@ -24,4 +27,73 @@ type Reply interface {
 	io.StringWriter
 
 	Flush() error
+}
+
+type tcpReplyPool struct {
+	c chan *tcpReply
+}
+
+func (p *tcpReplyPool) get() *tcpReply {
+	select {
+	case r := <-p.c:
+		return r
+	default:
+		return new(tcpReply)
+	}
+}
+
+func (p *tcpReplyPool) put(r *tcpReply) {
+	if r.buf.Cap() >= 4096 {
+		r.buf = bytes.Buffer{}
+	} else {
+		r.buf.Reset()
+	}
+	r.conn = nil
+	select {
+	case p.c <- r:
+		return
+	default:
+	}
+}
+
+func newTCPReply() *tcpReply {
+	return &tcpReply{}
+}
+
+type tcpReply struct {
+	buf   bytes.Buffer
+	conn  net.Conn
+	mutex sync.Mutex
+}
+
+func (r *tcpReply) WriteByte(c byte) error {
+	return r.buf.WriteByte(c)
+}
+
+func (r *tcpReply) Write(p []byte) (int, error) {
+	return r.buf.Write(p)
+}
+
+func (r *tcpReply) WriteString(s string) (int, error) {
+	return r.buf.WriteString(s)
+}
+
+func (r *tcpReply) Flush() error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	if r.buf.Len() == 0 {
+		return nil
+	}
+
+	defer r.buf.Reset()
+	data := r.buf.Bytes()
+	n, err := r.conn.Write(data)
+	if err != nil {
+		return err
+	}
+	if n != len(data) {
+		return io.ErrShortWrite
+	}
+	return nil
 }

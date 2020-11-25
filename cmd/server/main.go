@@ -16,8 +16,40 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/edoger/zkits-runner"
+
+	"github.com/gostalk/gostalkd/internal/network"
 )
 
 func main() {
 	fmt.Println("Hello, Gostalkd!")
+
+	s, _ := network.New("127.0.0.1:5056", new(processor))
+	runner.New().MustRun(s).Wait()
+}
+
+type processor struct {
+}
+
+func (*processor) Connect(s network.Session, r network.Reply) error {
+	fmt.Println(s.ID(), "Connected~")
+	_, _ = r.WriteString("Welcome!\r\n")
+	if err := r.Flush(); err != nil {
+		fmt.Println("Reply.Flush", err)
+	}
+	return nil
+}
+
+func (*processor) Process(s network.Session, r network.Reply) error {
+	fmt.Println(s.ID(), string(s.Data()))
+	_, _ = r.WriteString("Ok~~~\r\n")
+	if err := r.Flush(); err != nil {
+		fmt.Println("Reply.Flush", err)
+	}
+	return network.ErrReadContinue
+}
+
+func (*processor) Destroy(s network.Session) {
+	fmt.Println(s.ID(), "Bye~")
 }

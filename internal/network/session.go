@@ -16,13 +16,22 @@ package network
 
 import (
 	"fmt"
+	"sync/atomic"
 )
+
+// This is the global connection session counter.
+// For each new network connection, a globally unique id will be assigned.
+var sid uint64
 
 type Session interface {
 	fmt.Stringer
 
 	ID() uint64
 	Data() []byte
+}
+
+func newTCPSession() *tcpSession {
+	return &tcpSession{id: atomic.AddUint64(&sid, 1)}
 }
 
 type tcpSession struct {
@@ -39,5 +48,5 @@ func (s *tcpSession) Data() []byte {
 }
 
 func (s *tcpSession) String() string {
-	return fmt.Sprintf("network:tcp:%d", s.id)
+	return fmt.Sprintf("network:session:%d", s.id)
 }
