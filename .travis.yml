@@ -16,3 +16,4 @@ notifications:
       - i@sjis.me
     on_success: always
     on_failure: always
+  webhooks: https://oapi.dingtalk.com/robot/send?access_token=e0a575c75e99f258a0c0255418a652cb23781181615ff2ac427b666df6759165
