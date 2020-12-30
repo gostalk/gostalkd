@@ -17,6 +17,7 @@ package proto_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/gostalk/gostalkd/internal/proto"
 )
@@ -84,7 +85,7 @@ func TestCmdProcessor_Process(t *testing.T) {
 
 	session := &testSession{
 		id:   1,
-		data: []byte("put 1 10 10 5"),
+		data: []byte("put 1 1 10 5"),
 	}
 	reply := &testReply{
 		t: t,
@@ -94,6 +95,7 @@ func TestCmdProcessor_Process(t *testing.T) {
 
 	session.data = []byte("hello")
 	p.Process(session, reply)
+	time.Sleep(time.Second * 2)
 }
 
 func TestCmdProcessor_Destroy(t *testing.T) {
@@ -101,7 +103,7 @@ func TestCmdProcessor_Destroy(t *testing.T) {
 
 	session := &testSession{
 		id:   1,
-		data: []byte("put 1 10 10 5"),
+		data: []byte("put 1 1 10 5"),
 	}
 	reply := &testReply{
 		t: t,
@@ -111,5 +113,6 @@ func TestCmdProcessor_Destroy(t *testing.T) {
 
 	session.data = []byte("hello")
 	p.Process(session, reply)
+	time.Sleep(time.Second * 2)
 	p.Destroy(session)
 }

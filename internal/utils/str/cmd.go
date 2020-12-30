@@ -23,6 +23,7 @@ import (
 var IndexOutOfBounds = errors.New("index out of bounds")
 
 type Tokens struct {
+	err error
 	cur int
 	t   []string
 }
@@ -35,63 +36,107 @@ func Parse(cmd string) *Tokens {
 	}
 }
 
+// Err
+func (t *Tokens) Err() error {
+	return t.err
+}
+
 // Len
 func (t *Tokens) Len() int {
 	return len(t.t)
 }
 
 // NextString
-func (t *Tokens) NextString() (string, error) {
+func (t *Tokens) NextString(s *string) *Tokens {
+	if t.err != nil {
+		return t
+	}
 	if t.outOfBounds() {
-		return "", IndexOutOfBounds
+		t.err = IndexOutOfBounds
+		return t
 	}
 	r := t.t[t.cur]
 	t.cur++
-	return r, nil
+	*s = r
+	return t
 }
 
 // NextInt64
-func (t *Tokens) NextInt64() (int64, error) {
+func (t *Tokens) NextInt64(i *int64) *Tokens {
+	if t.err != nil {
+		return t
+	}
 	if t.outOfBounds() {
-		return 0, IndexOutOfBounds
+		t.err = IndexOutOfBounds
+		return t
 	}
 	r := t.t[t.cur]
 	t.cur++
-	return strconv.ParseInt(r, 10, 64)
+	ri, err := strconv.ParseInt(r, 10, 64)
+	t.err = err
+	*i = ri
+	return t
 }
 
 // NextInt
-func (t *Tokens) NextInt() (int, error) {
-	r, err := t.NextInt64()
-	return int(r), err
+func (t *Tokens) NextInt(i *int) *Tokens {
+	if t.err != nil {
+		return t
+	}
+	var r int64
+	t.NextInt64(&r)
+	*i = int(r)
+	return t
 }
 
 // NextUint64
-func (t *Tokens) NextUint64() (uint64, error) {
-	r, err := t.NextInt64()
-	return uint64(r), err
+func (t *Tokens) NextUint64(i *uint64) *Tokens {
+	if t.err != nil {
+		return t
+	}
+	var r int64
+	t.NextInt64(&r)
+	*i = uint64(r)
+	return t
 }
 
 // NextUint32
-func (t *Tokens) NextUint32() (uint32, error) {
-	r, err := t.NextInt64()
-	return uint32(r), err
+func (t *Tokens) NextUint32(i *uint32) *Tokens {
+	if t.err != nil {
+		return t
+	}
+	var r int64
+	t.NextInt64(&r)
+	*i = uint32(r)
+	return t
 }
 
 // NextFloat64
-func (t *Tokens) NextFloat64() (float64, error) {
+func (t *Tokens) NextFloat64(f *float64) *Tokens {
+	if t.err != nil {
+		return t
+	}
 	if t.outOfBounds() {
-		return 0, IndexOutOfBounds
+		t.err = IndexOutOfBounds
+		return t
 	}
 	r := t.t[t.cur]
 	t.cur++
-	return strconv.ParseFloat(r, 64)
+	of, err := strconv.ParseFloat(r, 64)
+	*f = of
+	t.err = err
+	return t
 }
 
 // NextFloat32
-func (t *Tokens) NextFloat32() (float32, error) {
-	r, err := t.NextFloat64()
-	return float32(r), err
+func (t *Tokens) NextFloat32(f *float32) *Tokens {
+	if t.err != nil {
+		return t
+	}
+	var r float64
+	t.NextFloat64(&r)
+	*f = float32(r)
+	return t
 }
 
 func (t *Tokens) outOfBounds() bool {

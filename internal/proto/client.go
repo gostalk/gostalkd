@@ -15,12 +15,36 @@
 package proto
 
 import (
+	"bytes"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gostalk/gostalkd/internal/network"
+	"github.com/gostalk/gostalkd/internal/structure/ms"
+	"github.com/gostalk/gostalkd/internal/structure/xheap"
 )
 
-const defaultClientSlot = 1024
+type CliState int32
+
+const (
+	defaultClientSlot = 1024
+
+	SafetyMargin = time.Second
+
+	ConnTypeProducer = 1
+	ConnTypeWorker   = 2
+	ConnTypeWaiting  = 4
+
+	StateWantCommand = iota // conn expects a command from the client
+	StateWantData           // conn expects a job data
+	StateSendJob            // conn sends job to the client
+	StateSendWord           // conn sends a line reply
+	StateWait               // client awaits for the job reservation
+	StateBitbucket          // conn discards content
+	StateClose              // conn should be closed
+	StateWantEndLine        // skip until the end of a line
+)
 
 type Clients struct {
 	clients []*clientEntity
@@ -34,17 +58,23 @@ type clientEntity struct {
 type Client struct {
 	session network.Session
 	reply   network.Reply
-	state   CliState
+	msgPoll sync.Pool
+
+	state      CliState
+	clientType int
 
 	use          *Tube
-	watch        map[string]*Tube
-	reservedJobs map[uint64]*Job
+	watch        *ms.Ms
+	reservedJobs *xheap.XHeap
 
 	inJob *Job
+
+	pendingTimeout int64
 }
 
-// NewClients
-func NewClients() *Clients {
+var clients *Clients
+
+func init() {
 	cls := &Clients{
 		clients: make([]*clientEntity, defaultClientSlot),
 	}
@@ -53,7 +83,7 @@ func NewClients() *Clients {
 			m: make(map[uint64]*Client),
 		}
 	}
-	return cls
+	clients = cls
 }
 
 // PutClient
@@ -68,8 +98,18 @@ func (cls *Clients) PutClient(c *Client) {
 func (cls *Clients) DelClientByID(id uint64) {
 	slot := cls.clients[id%defaultClientSlot]
 	slot.Lock()
-	delete(slot.m, id)
+	cli, ok := slot.m[id]
+	if ok {
+		delete(slot.m, id)
+	}
 	slot.Unlock()
+
+	for reservedJob := cli.reservedJobs.Pop(); reservedJob != nil; reservedJob = cli.reservedJobs.Pop() {
+		readyJob := reservedJob.(*ReservedJob).Cover2ReadyJob()
+		readyJob.tube.PushReadyJob(readyJob)
+	}
+
+	cli = nil
 }
 
 // GetClientByID
@@ -83,25 +123,33 @@ func (cls *Clients) GetClientByID(id uint64) (*Client, bool) {
 
 // NewClient
 func NewClient(session network.Session, reply network.Reply) *Client {
-	return &Client{
-		session: session,
-		reply:   reply,
-		use:     defaultTube,
-		watch: map[string]*Tube{
-			defaultName: defaultTube,
-		},
+	cli := &Client{
+		session:      session,
+		reply:        reply,
+		use:          DefaultTube,
+		watch:        ms.NewMs(DefaultTube),
+		reservedJobs: xheap.NewXHeap().Lock(),
 	}
+	cli.msgPoll.New = func() interface{} {
+		return bytes.Buffer{}
+	}
+	return cli
 }
 
-// ProcessData
-func (c *Client) Process() error {
+// DoProcess
+func (c *Client) DoProcess() error {
 	if c.state == StateBitbucket {
-		return nil
+		return network.ErrReadContinue
 	}
 	return ioProcess(c)
 }
 
-// GetSessionID
+// Use
+func (c *Client) Use(tube *Tube) {
+	c.use = tube
+}
+
+// GetSession
 func (c *Client) GetSession() network.Session {
 	return c.session
 }
@@ -121,44 +169,97 @@ func (c *Client) SetState(state CliState) {
 	c.state = state
 }
 
-// AddWatch
-func (c *Client) AddWatch(tube *Tube) {
-	c.watch[tube.Name()] = tube
-}
-
-// GetWatchTubeByName
-func (c *Client) GetWatchTubeByName(name string) (*Tube, bool) {
-	t, ok := c.watch[name]
-	return t, ok
-}
-
-// Use
-func (c *Client) Use(tube *Tube) {
-	c.use = tube
-}
-
-// GetUseTube
-func (c *Client) GetUseTube() *Tube {
-	t := c.use
-	return t
-}
-
-// GetReservedJobByID
-func (c *Client) GetReservedJobByID(id uint64) (*Job, bool) {
-	j, ok := c.reservedJobs[id]
-	return j, ok
-}
-
-// AddReservedJob
-func (c *Client) AddReservedJob(j *Job) {
-	c.reservedJobs[j.R.ID] = j
-}
-
-// DelReservedJob
-func (c *Client) DelReservedJob(j *Job) bool {
-	_, ok := c.reservedJobs[j.R.ID]
-	if ok {
-		delete(c.reservedJobs, j.R.ID)
+// GetReservedJobByIdx
+func (c *Client) GetReservedJobByIdx(idx int) (*Job, bool) {
+	j := c.reservedJobs.Take(idx)
+	if j == nil {
+		return nil, false
 	}
-	return ok
+	return j.(*ReservedJob).Job, true
+}
+
+// PushReservedJob
+func (c *Client) PushReservedJob(j *ReservedJob) {
+	c.reservedJobs.Push(j)
+}
+
+// WatchTubeHaveReady
+func (c *Client) WatchTubeHaveReady() bool {
+	ready := false
+	c.watch.Iterator(func(item interface{}) bool {
+		if item.(*Tube).readyJobs.Len() > 0 {
+			ready = true
+			return false
+		}
+		return true
+	})
+	return ready
+}
+
+// EnqueueWaitingClient
+func (c *Client) EnqueueWaitingClient() {
+	c.clientType |= ConnTypeWaiting
+	c.watch.Iterator(func(item interface{}) bool {
+		t := item.(*Tube)
+		t.waitingClient.Append(c)
+		return true
+	})
+}
+
+// WaitForJob
+func (c *Client) WaitForJob(timeout int64) {
+	c.state = StateWait
+	c.EnqueueWaitingClient()
+	c.pendingTimeout = timeout
+}
+
+// ReplyJob
+func (c *Client) ReplyJob(j *Job, replyMsg string) {
+	msg := c.msgPoll.Get().(bytes.Buffer)
+	defer func() {
+		msg.Reset()
+		c.msgPoll.Put(msg)
+	}()
+
+	msg.WriteString(replyMsg)
+	msg.WriteString(" ")
+	msg.WriteString(strconv.FormatUint(j.R.ID, 10))
+	msg.WriteString(" ")
+	msg.WriteString(strconv.Itoa(len(j.body)))
+	msg.WriteString("\r\n")
+	msg.Write(append(j.body, []byte("\r\n")...))
+	c.reply.Write(msg.Bytes())
+}
+
+// ReplyMsg
+func (c *Client) ReplyMsg(replyMsg string) {
+	msg := c.msgPoll.Get().(bytes.Buffer)
+	defer func() {
+		msg.Reset()
+		c.msgPoll.Put(msg)
+	}()
+
+	msg.WriteString(replyMsg)
+	msg.WriteString("\r\n")
+	c.reply.Write(msg.Bytes())
+}
+
+// ReplyErr
+func (c *Client) ReplyErr(err string) {
+	msg := c.msgPoll.Get().(bytes.Buffer)
+	defer func() {
+		msg.Reset()
+		c.msgPoll.Put(msg)
+	}()
+
+	msg.WriteString("server error: " + err)
+	c.ReplyMsg(msg.String())
+}
+
+// SetWorker
+func (c *Client) SetWorker() {
+	if c.clientType&ConnTypeWorker > 0 {
+		return
+	}
+	c.clientType |= ConnTypeWorker
 }

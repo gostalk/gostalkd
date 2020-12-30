@@ -40,13 +40,15 @@ func NewMs(items ...interface{}) *Ms {
 }
 
 // NoLock
-func (m *Ms) NoLock() {
+func (m *Ms) NoLock() *Ms {
 	m.lock = false
+	return m
 }
 
 // Lock
-func (m *Ms) Lock() {
+func (m *Ms) Lock() *Ms {
 	m.lock = true
+	return m
 }
 
 // WithInsertFn

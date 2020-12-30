@@ -28,7 +28,7 @@ type CmdProcessor struct {
 // NewCmdProcessor
 func NewCmdProcessor() *CmdProcessor {
 	return &CmdProcessor{
-		clients: NewClients(),
+		clients: clients,
 	}
 }
 
@@ -44,7 +44,7 @@ func (p *CmdProcessor) Process(s network.Session, r network.Reply) error {
 	if !ok {
 		return errors.New("client not found")
 	}
-	return cli.Process()
+	return cli.DoProcess()
 }
 
 // Destroy
