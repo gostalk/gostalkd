@@ -1,43 +1,42 @@
 ## [gostalkd](https://github.com/gostalk/gostalkd)
 
-English | [简体中文](readme.md)
+[English](readme-en.md) | 简体中文
 
 [![Build Status](https://travis-ci.org/gostalk/gostalkd.svg?branch=main)](https://travis-ci.org/gostalk/gostalkd.svg?branch=main)
 [![codecov](https://codecov.io/gh/gostalk/gostalkd/branch/main/graph/badge.svg)](https://codecov.io/gh/gostalk/gostalkd)
 [![Release](https://img.shields.io/github/release/gostalk/gostalkd.svg?label=Release)](https://github.com/gostalk/gostalkd/releases)
 [![License](https://img.shields.io/github/license/gostalk/gostalkd)](https://github.com/gostalk/gostalkd)
 
-## Description
+## 描述
 
-- Simple and fast general purpose work queue.
-- Fully compatible with beanstalkd protocol
-- Fully [Beanstalk](https://github.com/beanstalkd/beanstalkd) compatible task queue implemented by golang
-  purpose
-- [ProtocolDescription](doc/protocol.zh-CN.md)
+- 简单快速的通用工作队列
+- 完全兼容beanstalkd协议
+- 用golang完全实现了 [Beanstalk](https://github.com/beanstalkd/beanstalkd) 功能
+- [协议说明](doc/protocol.zh-CN.md)
 
-## Milepost
+## 里程碑
 
-- *2020-11-14* : all dispatch cmd complete but memory only.
-- *2020-11-15* : binlog persistence support
+- *2020-11-14* : 所有指令全部实现完成，但仅限内存。
+- *2020-11-15* : binlog持久化支持
 
-## Quick Start
+## 快速开始
 
-using go get install
+使用go get安装
 
 ```bash
 GO111MODULE=on GOPROXY=https://goproxy.cn/,direct go get -u -v github.com/gostalk/gostalkd
 ```
 
-using make you self
+手动编译
 
 ```bash
-make
-make run    # run program
-make test   # run go test
-make clean  # del program and log dir
+make       # 编译
+make run   # 运行
+make test  # 运行单测
+make clean # 清除编译和运行结果
 ```
 
-view support commands
+查看支持命令
 
 ```bash
 ./gostalkd -h
@@ -66,7 +65,7 @@ Usage of ./gostalkd:
         set the maximum job size in bytes (default is 65535);max allowed is 1073741824 bytes (default 65535)
 ```
 
-## Third Party
+## 第三方
 
-- [Beanstalkd queue server console](https://github.com/xuri/aurora)
-- [High available beanstalkd go client](https://github.com/tal-tech/go-queue) 
+- [Beanstalkd管理界面](https://github.com/xuri/aurora)
+- [Beanstalkd高可用客户端](https://github.com/tal-tech/go-queue) 
