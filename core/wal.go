@@ -1,4 +1,4 @@
-// Copyright 2020 SunJun <i@sjis.me>
+// Copyright 2020 gostalkd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package core
 
 import (
@@ -275,6 +276,7 @@ func needFree(w *model.Wal, n int64) int64 {
 //  1. w->cur->resv >= n.
 //  2. w->cur->resv is congruent to n (mod z).
 //  3. x->resv is congruent to 0 (mod z) for each future file x.
+//
 // (where z is the size of a delete record in the wal).
 // Reserved space is conserved (neither created nor destroyed);
 // we just move it around to preserve the invariant.
@@ -300,6 +302,7 @@ func balance(w *model.Wal, n int64) int64 {
 // Ensures:
 //  1. b->resv is congruent to n (mod z).
 //  2. x->resv is congruent to 0 (mod z) for each future file x.
+//
 // Assumes (and preserves) that b->resv >= n.
 // Reserved space is conserved (neither created nor destroyed);
 // we just move it around to preserve the invariant.
