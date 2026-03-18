@@ -236,7 +236,8 @@ func dispatchOpPut(c *model.Coon) {
 		return
 	}
 
-	if c.Cmd[idx] != '\r' {
+	// 检查 \r\n 结尾（beanstalkd 协议要求）
+	if idx+1 >= len(c.Cmd) || c.Cmd[idx] != '\r' || c.Cmd[idx+1] != '\n' {
 		replyMsg(c, constant.MsgBadFormat)
 		return
 	}
@@ -393,6 +394,9 @@ func dispatchOpReserveJob(c *model.Coon) {
 		j = removeBuriedJob(j)
 	case constant.Delayed:
 		j = removeDelayedJob(j)
+	case constant.Reserved:
+		replyMsg(c, constant.MsgNotFound)
+		return
 	default:
 		replyErr(c, constant.MsgInternalError)
 		return
