@@ -48,28 +48,28 @@ make clean # 清除编译和运行结果
 ```bash
 Usage of ./gostalkd:
   -c int
-        set the maximum number of concurrent connections (default is 0, meaning no limit)
-  -F    never fsync
+        最大并发连接数（默认 0，表示无限制）
+  -F    禁用 fsync
   -L string
-        set the log level, switch one in (panic, fatal, error, warn, waring, info, debug, trace) (default "warn")
-  -V    increase verbosity
+        设置日志级别，可选值: panic, fatal, error, warn, waring, info, debug, trace（默认 "warn"）
+  -V    增加详细输出
   -b string
-        write-ahead log directory
+        write-ahead log 目录
   -f int
-        fsync at most once every MS milliseconds (default is 50ms);use -f0 for "always fsync" (default 50)
+        每次写入后最多延迟 fsync 多少毫秒（默认 50ms）；使用 -f0 表示"始终 fsync"（默认 50）
   -l string
-        listen on address (default is 0.0.0.0) (default "0.0.0.0")
+        监听地址（默认 0.0.0.0）（默认 "0.0.0.0"）
   -p int
-        listen on port (default is 11400) (default 11400)
+        监听端口（默认 11400）（默认 11400）
   -s int
-        set the size of each write-ahead log file (default is 10485760);will be rounded up to a multiple of 4096 bytes (default 10485760)
+        每个 write-ahead log 文件的大小（默认 10485760），会被取整为 4096 的倍数（默认 10485760）
   -t int
-        set the graceful shutdown timeout in seconds (default is 30)
+        优雅关闭超时时间，单位秒（默认 30）
   -u string
-        become user and group
-  -v    show version information
+        切换运行用户和用户组
+  -v    显示版本信息
   -z int
-        set the maximum job size in bytes (default is 65535);max allowed is 1073741824 bytes (default 65535)
+        最大 job 大小，单位字节（默认 65535），最大允许 1073741824（默认 65535）
 ```
 
 ## 第三方
