@@ -50,6 +50,11 @@ Usage of ./gostalkd:
   -c int
         set the maximum number of concurrent connections (default is 0, meaning no limit)
   -F    never fsync
+  -L string
+        set the log level, switch one in (panic, fatal, error, warn, waring, info, debug, trace) (default "warn")
+  -V    increase verbosity
+  -b string
+        write-ahead log directory
   -f int
         fsync at most once every MS milliseconds (default is 50ms);use -f0 for "always fsync" (default 50)
   -l string
