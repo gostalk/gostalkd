@@ -13,11 +13,14 @@
 - 完全兼容beanstalkd协议
 - 用golang完全实现了 [Beanstalk](https://github.com/beanstalkd/beanstalkd) 功能
 - [协议说明](doc/protocol.zh-CN.md)
+- **P0 修复**: CRLF 检测、reserve-job 对 reserved 状态返回 NOT_FOUND
+- **P1 功能**: 连接数限制 (-c)、优雅关闭 (-t)、drain 命令
 
 ## 里程碑
 
 - *2020-11-14* : 所有指令全部实现完成，但仅限内存。
 - *2020-11-15* : binlog持久化支持
+- *2026-03-18* : P0 修复 + 连接数限制、优雅关闭、drain 命令
 
 ## 快速开始
 
@@ -44,12 +47,9 @@ make clean # 清除编译和运行结果
 
 ```bash
 Usage of ./gostalkd:
+  -c int
+        set the maximum number of concurrent connections (default is 0, meaning no limit)
   -F    never fsync
-  -L string
-        set the log level, switch one in (panic, fatal, error, warn, waring, info, debug, trace) (default "warn")
-  -V    increase verbosity
-  -b string
-        write-ahead log directory
   -f int
         fsync at most once every MS milliseconds (default is 50ms);use -f0 for "always fsync" (default 50)
   -l string
@@ -58,6 +58,8 @@ Usage of ./gostalkd:
         listen on port (default is 11400) (default 11400)
   -s int
         set the size of each write-ahead log file (default is 10485760);will be rounded up to a multiple of 4096 bytes (default 10485760)
+  -t int
+        set the graceful shutdown timeout in seconds (default is 30)
   -u string
         become user and group
   -v    show version information

@@ -14,11 +14,14 @@ English | [简体中文](readme.md)
 - Fully [Beanstalk](https://github.com/beanstalkd/beanstalkd) compatible task queue implemented by golang
   purpose
 - [ProtocolDescription](doc/protocol.zh-CN.md)
+- **P0 fixes**: CRLF detection, reserve-job NOT_FOUND for reserved jobs
+- **P1 features**: connection limit (-c), graceful shutdown (-t), drain command
 
 ## Milepost
 
 - *2020-11-14* : all dispatch cmd complete but memory only.
 - *2020-11-15* : binlog persistence support
+- *2026-03-18* : P0 bug fixes + connection limit, graceful shutdown, drain command
 
 ## Quick Start
 
@@ -45,12 +48,9 @@ view support commands
 
 ```bash
 Usage of ./gostalkd:
+  -c int
+        set the maximum number of concurrent connections (default is 0, meaning no limit)
   -F    never fsync
-  -L string
-        set the log level, switch one in (panic, fatal, error, warn, waring, info, debug, trace) (default "warn")
-  -V    increase verbosity
-  -b string
-        write-ahead log directory
   -f int
         fsync at most once every MS milliseconds (default is 50ms);use -f0 for "always fsync" (default 50)
   -l string
@@ -59,6 +59,8 @@ Usage of ./gostalkd:
         listen on port (default is 11400) (default 11400)
   -s int
         set the size of each write-ahead log file (default is 10485760);will be rounded up to a multiple of 4096 bytes (default 10485760)
+  -t int
+        set the graceful shutdown timeout in seconds (default is 30)
   -u string
         become user and group
   -v    show version information
