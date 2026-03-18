@@ -37,6 +37,8 @@ var (
 	ShowVersion           = flag.Bool("v", false, "show version information")                                                                                                           // show version
 	Verbosity             = flag.Bool("V", false, "increase verbosity")                                                                                                                 // increase verbosity
 	LogLevel              = flag.String("L", "warn", "set the log level, switch one in (panic, fatal, error, warn, waring, info, debug, trace)")
+	MaxConns              = flag.Int("c", 0, "set the maximum number of concurrent connections (default is 0, meaning no limit)") // max connections (0 = unlimited)
+	ShutdownTimeout       = flag.Int64("t", 30, "set the graceful shutdown timeout in seconds (default is 30)")                    // shutdown timeout in seconds
 )
 
 func OptParse(s *model.Server) {
@@ -55,6 +57,8 @@ func OptParse(s *model.Server) {
 	s.Wal.FileSize = *EachWriteAheadLogSize
 	s.Wal.SyncRate = *FsyncMs * 1000000
 	s.Wal.WantSync = true
+	s.MaxConns = *MaxConns
+	s.ShutdownTimeout = *ShutdownTimeout
 
 	if *FsyncNever {
 		s.Wal.WantSync = false

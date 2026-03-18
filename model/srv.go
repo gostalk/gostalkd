@@ -19,19 +19,23 @@ import (
 )
 
 type ServerOptions struct {
-	Port int // 服务端口
-	Addr string
-	User string
+	Port           int // 服务端口
+	Addr           string
+	User           string
+	MaxConns      int // max concurrent connections (0 = unlimited)
+	ShutdownTimeout int64 // graceful shutdown timeout in seconds
 }
 
 type ServerOption func(*ServerOptions)
 
 type Server struct {
-	Options ServerOptions
-	Wal     Wal
-
-	Sock   *Socket
-	Connes *structure.Heap
+	Options          ServerOptions
+	Wal              Wal
+	Sock             *Socket
+	Connes           *structure.Heap
+	MaxConns         int  // max concurrent connections (0 = unlimited)
+	ShutdownTimeout  int64 // graceful shutdown timeout in seconds
+	ShutdownSignaled bool  // true if graceful shutdown has been triggered
 }
 
 // WithPort 设置端口
@@ -52,5 +56,19 @@ func WithAddr(addr string) ServerOption {
 func WithUser(user string) ServerOption {
 	return func(o *ServerOptions) {
 		o.User = user
+	}
+}
+
+// WithMaxConns sets the maximum number of concurrent connections
+func WithMaxConns(maxConns int) ServerOption {
+	return func(o *ServerOptions) {
+		o.MaxConns = maxConns
+	}
+}
+
+// WithShutdownTimeout sets the graceful shutdown timeout in seconds
+func WithShutdownTimeout(timeout int64) ServerOption {
+	return func(o *ServerOptions) {
+		o.ShutdownTimeout = timeout
 	}
 }

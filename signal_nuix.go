@@ -36,5 +36,5 @@ func setSigHandlers(srv *model.Server) {
 
 	sigIntTerm := make(chan os.Signal, 3)
 	signal.Notify(sigIntTerm, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
-	sigIntTermHandle(sigIntTerm, &srv.Wal)
+	sigIntTermHandle(sigIntTerm, srv)
 }

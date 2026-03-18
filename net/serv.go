@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync/atomic"
 
 	"github.com/gostalk/gostalkd/constant"
 	"github.com/gostalk/gostalkd/core"
@@ -39,6 +40,8 @@ func NewServer(options ...model.ServerOption) (*model.Server, error) {
 	s := &model.Server{
 		Options: *opts,
 		Connes:  structure.NewHeap(),
+		MaxConns: opts.MaxConns,
+		ShutdownTimeout: opts.ShutdownTimeout,
 	}
 
 	sock := &model.Socket{}
@@ -144,6 +147,14 @@ func srvAccept(i interface{}, ev byte) {
 func hAccept(s *model.Server, which byte) {
 	c, err := s.Sock.Ln.Accept()
 	if err != nil {
+		return
+	}
+
+	// Check connection limit (maxConns = 0 means unlimited)
+	if s.MaxConns > 0 && int(atomic.LoadUint64(&utils.CurConnCt)) >= s.MaxConns {
+		// Return DRAINING and close the new connection (beanstalkd behavior)
+		c.Write([]byte(constant.MsgDraining))
+		c.Close()
 		return
 	}
 

@@ -200,6 +200,8 @@ func dispatchCmd(c *model.Coon) {
 		dispatchOpQuit(c)
 	case constant.OpPauseTube:
 		dispatchOpPauseTube(c)
+	case constant.OpDrain:
+		dispatchOpDrain(c)
 	default:
 		replyMsg(c, constant.MsgUnknownCommand)
 	}
@@ -797,6 +799,24 @@ func dispatchOpPauseTube(c *model.Coon) {
 	t.Stat.PauseCt++
 
 	replyLine(c, constant.StateSendWord, "PAUSED\r\n")
+}
+
+// dispatchOpDrain handles the "drain" command.
+// It puts the server into drain mode: stop accepting new connections,
+// but existing connections continue to work. Returns OK.
+func dispatchOpDrain(c *model.Coon) {
+	// Validate command has no trailing args (only "drain\r\n")
+	if c.CmdLen != len(constant.CmdDrain)+2 {
+		replyMsg(c, constant.MsgBadFormat)
+		return
+	}
+	utils.OpCt[constant.OpDrain]++
+
+	// Enter drain mode - stops accepting new put commands
+	atomic.StoreInt64(&utils.DrainMode, 1)
+	utils.Log.Warnln("server entered drain mode")
+
+	replyMsg(c, constant.MsgOK)
 }
 
 // doStats

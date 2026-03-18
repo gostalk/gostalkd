@@ -92,6 +92,7 @@ const (
 	OpPauseTube
 	OpKickJob
 	OpReserveJob
+	OpDrain
 	TotalOps
 
 	CmdPut              = "put"
@@ -119,6 +120,7 @@ const (
 	CmdStatsTube        = "stats-tube"
 	CmdQuit             = "quit"
 	CmdPauseTube        = "pause-tube"
+	CmdDrain            = "drain"
 )
 
 var (
@@ -138,6 +140,7 @@ var (
 	MsgOutOfMemory    = []byte("OUT_OF_MEMORY\r\n")
 	MsgInternalError  = []byte("INTERNAL_ERROR\r\n")
 	MsgDraining       = []byte("DRAINING\r\n")
+	MsgOK             = []byte("OK\r\n")
 	MsgBadFormat      = []byte("BAD_FORMAT\r\n")
 	MsgUnknownCommand = []byte("UNKNOWN_COMMAND\r\n")
 	MsgExpectedCrlf   = []byte("EXPECTED_CRLF\r\n")
@@ -170,6 +173,7 @@ var (
 		CmdStatsTube:        OpStatsTube,
 		CmdQuit:             OpQuit,
 		CmdPauseTube:        OpPauseTube,
+		CmdDrain:            OpDrain,
 	}
 )
 
